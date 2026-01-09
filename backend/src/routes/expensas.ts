@@ -97,9 +97,9 @@ export async function expensasRoutes(fastify: FastifyInstance) {
   });
 
   // Obtener expensa por ID
-  fastify.get('/api/expensas/:id', {
+  fastify.get<{ Params: { id: string } }>('/api/expensas/:id', {
     preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  }, async (request, reply) => {
     const { id } = request.params;
 
     const expensa = await prisma.expensa.findUnique({
@@ -180,9 +180,9 @@ export async function expensasRoutes(fastify: FastifyInstance) {
   });
 
   // Actualizar expensa
-  fastify.put('/api/expensas/:id', {
+  fastify.put<{ Params: { id: string } }>('/api/expensas/:id', {
     preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  }, async (request, reply) => {
     try {
       const { id } = request.params;
       const body = updateExpensaSchema.parse(request.body);
@@ -228,9 +228,9 @@ export async function expensasRoutes(fastify: FastifyInstance) {
   });
 
   // Eliminar expensa
-  fastify.delete('/api/expensas/:id', {
+  fastify.delete<{ Params: { id: string } }>('/api/expensas/:id', {
     preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  }, async (request, reply) => {
     try {
       const { id } = request.params;
 

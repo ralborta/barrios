@@ -64,9 +64,9 @@ export async function vecinosRoutes(fastify: FastifyInstance) {
   });
 
   // Obtener vecino por ID
-  fastify.get('/api/vecinos/:id', {
+  fastify.get<{ Params: { id: string } }>('/api/vecinos/:id', {
     preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  }, async (request, reply) => {
     const { id } = request.params;
 
     const vecino = await prisma.vecino.findUnique({
@@ -140,9 +140,9 @@ export async function vecinosRoutes(fastify: FastifyInstance) {
   });
 
   // Actualizar vecino
-  fastify.put('/api/vecinos/:id', {
+  fastify.put<{ Params: { id: string } }>('/api/vecinos/:id', {
     preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  }, async (request, reply) => {
     try {
       const { id } = request.params;
       const body = updateVecinoSchema.parse(request.body);
@@ -174,9 +174,9 @@ export async function vecinosRoutes(fastify: FastifyInstance) {
   });
 
   // Eliminar vecino
-  fastify.delete('/api/vecinos/:id', {
+  fastify.delete<{ Params: { id: string } }>('/api/vecinos/:id', {
     preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  }, async (request, reply) => {
     try {
       const { id } = request.params;
 

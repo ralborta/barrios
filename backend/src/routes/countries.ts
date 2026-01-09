@@ -37,9 +37,9 @@ export async function countriesRoutes(fastify: FastifyInstance) {
   });
 
   // Obtener country por ID
-  fastify.get('/api/countries/:id', {
+  fastify.get<{ Params: { id: string } }>('/api/countries/:id', {
     preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  }, async (request, reply) => {
     const { id } = request.params;
 
     const country = await prisma.country.findUnique({
@@ -89,9 +89,9 @@ export async function countriesRoutes(fastify: FastifyInstance) {
   });
 
   // Actualizar country
-  fastify.put('/api/countries/:id', {
+  fastify.put<{ Params: { id: string } }>('/api/countries/:id', {
     preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  }, async (request, reply) => {
     try {
       const { id } = request.params;
       const body = updateCountrySchema.parse(request.body);
@@ -115,9 +115,9 @@ export async function countriesRoutes(fastify: FastifyInstance) {
   });
 
   // Eliminar country
-  fastify.delete('/api/countries/:id', {
+  fastify.delete<{ Params: { id: string } }>('/api/countries/:id', {
     preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  }, async (request, reply) => {
     try {
       const { id } = request.params;
 

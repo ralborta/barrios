@@ -55,9 +55,9 @@ export async function periodosRoutes(fastify: FastifyInstance) {
   });
 
   // Obtener período por ID
-  fastify.get('/api/periodos/:id', {
+  fastify.get<{ Params: { id: string } }>('/api/periodos/:id', {
     preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  }, async (request, reply) => {
     const { id } = request.params;
 
     const periodo = await prisma.periodo.findUnique({
@@ -127,9 +127,9 @@ export async function periodosRoutes(fastify: FastifyInstance) {
   });
 
   // Actualizar período
-  fastify.put('/api/periodos/:id', {
+  fastify.put<{ Params: { id: string } }>('/api/periodos/:id', {
     preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  }, async (request, reply) => {
     try {
       const { id } = request.params;
       const body = updatePeriodoSchema.parse(request.body);
@@ -169,9 +169,9 @@ export async function periodosRoutes(fastify: FastifyInstance) {
   });
 
   // Eliminar período
-  fastify.delete('/api/periodos/:id', {
+  fastify.delete<{ Params: { id: string } }>('/api/periodos/:id', {
     preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  }, async (request, reply) => {
     try {
       const { id } = request.params;
 
