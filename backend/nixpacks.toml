@@ -1,5 +1,5 @@
-[providers]
-node = "20"
+[phases.setup]
+nixPkgs = { nodejs = "20", npm = "10" }
 
 [phases.build]
 cmds = ["npm install", "npm run prisma:generate", "npm run build"]
