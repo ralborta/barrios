@@ -1,0 +1,209 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Modelo de Country/Barrio
+model Country {
+  id          String   @id @default(cuid())
+  name        String
+  address     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  vecinos     Vecino[]
+  periodos    Periodo[]
+  
+  @@map("countries")
+}
+
+// Modelo de Vecino
+model Vecino {
+  id          String   @id @default(cuid())
+  countryId   String
+  country     Country  @relation(fields: [countryId], references: [id], onDelete: Cascade)
+  
+  nombre      String
+  apellido    String
+  email       String
+  telefono    String?
+  unidad      String?  // Ej: "Casa 12", "Lote 5"
+  observaciones String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  expensas    Expensa[]
+  comprobantes Comprobante[]
+  mensajes    Mensaje[]
+  
+  @@map("vecinos")
+}
+
+// Modelo de Período (mes/año de expensas)
+model Periodo {
+  id          String   @id @default(cuid())
+  countryId   String
+  country     Country  @relation(fields: [countryId], references: [id], onDelete: Cascade)
+  
+  mes         Int      // 1-12
+  anio        Int
+  montoBase   Decimal  @db.Decimal(10, 2)
+  fechaVencimiento DateTime
+  fechaCierre DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  expensas    Expensa[]
+  
+  @@unique([countryId, mes, anio])
+  @@map("periodos")
+}
+
+// Modelo de Expensa (expensa individual por vecino)
+model Expensa {
+  id          String   @id @default(cuid())
+  periodoId   String
+  periodo     Periodo  @relation(fields: [periodoId], references: [id], onDelete: Cascade)
+  vecinoId    String
+  vecino      Vecino   @relation(fields: [vecinoId], references: [id], onDelete: Cascade)
+  
+  monto       Decimal  @db.Decimal(10, 2)
+  estado      EstadoExpensa @default(PENDIENTE)
+  
+  // Fechas de seguimiento
+  fechaVencimiento DateTime
+  fechaUltimoSeguimiento DateTime?
+  proximoSeguimiento DateTime?
+  
+  // Contador de seguimientos
+  contadorSeguimientos Int @default(0)
+  
+  // Mes de mora (null si no está en mora)
+  mesMora     Int?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  mensajes    Mensaje[]
+  comprobantes Comprobante[]
+  
+  @@unique([periodoId, vecinoId])
+  @@map("expensas")
+}
+
+// Estados operativos de expensas
+enum EstadoExpensa {
+  PENDIENTE
+  PAGO_INFORMADO
+  CONFIRMADO
+  EN_MORA
+  EN_RECUPERO
+  SIN_RESPUESTA
+  PAUSADO
+}
+
+// Modelo de Mensaje (comunicaciones)
+model Mensaje {
+  id          String   @id @default(cuid())
+  expensaId   String?
+  expensa     Expensa? @relation(fields: [expensaId], references: [id], onDelete: SetNull)
+  vecinoId    String
+  vecino      Vecino   @relation(fields: [vecinoId], references: [id], onDelete: Cascade)
+  
+  canal       CanalMensaje
+  tipo        TipoMensaje
+  contenido   String?
+  estado      EstadoMensaje @default(ENVIADO)
+  
+  // Para WhatsApp
+  whatsappId  String?
+  
+  // Para Email
+  emailId     String?
+  asunto      String?
+  
+  createdAt   DateTime @default(now())
+  
+  @@map("mensajes")
+}
+
+enum CanalMensaje {
+  WHATSAPP
+  EMAIL
+}
+
+enum TipoMensaje {
+  EMISION
+  RECORDATORIO_VENCIMIENTO
+  SEGUIMIENTO
+  CIERRE_MES
+  MORA
+  RECUPERO
+  MANUAL
+}
+
+enum EstadoMensaje {
+  ENVIADO
+  ENTREGADO
+  LEIDO
+  ERROR
+}
+
+// Modelo de Comprobante
+model Comprobante {
+  id          String   @id @default(cuid())
+  expensaId   String?
+  expensa     Expensa? @relation(fields: [expensaId], references: [id], onDelete: SetNull)
+  vecinoId    String
+  vecino      Vecino   @relation(fields: [vecinoId], references: [id], onDelete: Cascade)
+  
+  url         String   // URL del archivo almacenado
+  tipoArchivo String   // image/jpeg, application/pdf, etc.
+  nombreArchivo String
+  
+  estado      EstadoComprobante @default(NUEVO)
+  observaciones String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("comprobantes")
+}
+
+enum EstadoComprobante {
+  NUEVO
+  REVISADO
+  CONFIRMADO
+  RECHAZADO
+}
+
+// Modelo de Usuario (administradores del sistema)
+model Usuario {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  nombre      String
+  passwordHash String
+  
+  rol         RolUsuario @default(OPERADOR)
+  activo      Boolean  @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("usuarios")
+}
+
+enum RolUsuario {
+  ADMINISTRADOR
+  OPERADOR
+  LECTURA
+}
