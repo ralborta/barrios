@@ -39,8 +39,8 @@ export function useExpensas(params?: { periodoId?: string; estado?: string; coun
     
     const response = await expensasApi.list(params)
     
-    if (response.success && response.data) {
-      setExpensas(response.data)
+    if (response.success && response.data && Array.isArray(response.data)) {
+      setExpensas(response.data as Expensa[])
     } else {
       setError(response.error || "Error al cargar expensas")
     }
@@ -79,12 +79,12 @@ export function useExpensasStats() {
     ])
 
     setStats({
-      pendientes: pendientes.success ? pendientes.data?.length || 0 : 0,
-      pagoInformado: informados.success ? informados.data?.length || 0 : 0,
-      confirmados: confirmados.success ? confirmados.data?.length || 0 : 0,
-      enMora: mora.success ? mora.data?.length || 0 : 0,
-      enRecupero: recupero.success ? recupero.data?.length || 0 : 0,
-      sinRespuesta: sinRespuesta.success ? sinRespuesta.data?.length || 0 : 0,
+      pendientes: pendientes.success && Array.isArray(pendientes.data) ? pendientes.data.length : 0,
+      pagoInformado: informados.success && Array.isArray(informados.data) ? informados.data.length : 0,
+      confirmados: confirmados.success && Array.isArray(confirmados.data) ? confirmados.data.length : 0,
+      enMora: mora.success && Array.isArray(mora.data) ? mora.data.length : 0,
+      enRecupero: recupero.success && Array.isArray(recupero.data) ? recupero.data.length : 0,
+      sinRespuesta: sinRespuesta.success && Array.isArray(sinRespuesta.data) ? sinRespuesta.data.length : 0,
     })
     
     setLoading(false)

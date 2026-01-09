@@ -141,7 +141,7 @@ export const periodosApi = {
 export const expensasApi = {
   list: (params?: { periodoId?: string; vecinoId?: string; estado?: string; countryId?: string }) => {
     const query = new URLSearchParams(params as any).toString();
-    return api.get(`/api/expensas${query ? `?${query}` : ''}`);
+    return api.get<any[]>(`/api/expensas${query ? `?${query}` : ''}`);
   },
   get: (id: string) => api.get(`/api/expensas/${id}`),
   create: (data: any) => api.post('/api/expensas', data),
