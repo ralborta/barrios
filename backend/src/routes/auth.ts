@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { PrismaClient } from '@prisma/client';
-import { hashPassword, verifyPassword } from '../utils/password';
+import { hashPassword, verifyPassword } from '../utils/password.js';
 import { z } from 'zod';
 
 const prisma = new PrismaClient();
