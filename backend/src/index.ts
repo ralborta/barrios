@@ -162,17 +162,13 @@ async function start() {
       allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With', 'X-Webhook-Secret'],
     });
 
-    // Validar variables de entorno críticas ANTES de continuar
-    if (!process.env.DATABASE_URL) {
-      throw new Error('❌ DATABASE_URL environment variable is required but not found');
-    }
-
-    // Conectar Prisma al inicio (fail fast)
-    // Si falta DATABASE_URL o hay error de conexión, el servicio falla al boot
-    console.log('🔌 Connecting to database...');
+    // Conectar Prisma (pero no crashear si falla - permitir que el servidor arranque)
+    let dbConnected = false;
     
-    // Mostrar información del DATABASE_URL sin exponer credenciales
     if (process.env.DATABASE_URL) {
+      console.log('🔌 Connecting to database...');
+      
+      // Mostrar información del DATABASE_URL sin exponer credenciales
       try {
         const url = new URL(process.env.DATABASE_URL);
         console.log('📡 Database host:', url.hostname);
@@ -181,20 +177,25 @@ async function start() {
       } catch {
         console.log('📡 DATABASE_URL:', `${process.env.DATABASE_URL.substring(0, 30)}...`);
       }
-    } else {
-      console.error('❌ DATABASE_URL is NOT SET');
-    }
-    
-    try {
-      await prisma.$connect();
-      console.log('✅ Prisma connected successfully');
-    } catch (dbError: any) {
-      console.error('❌ Database connection failed:');
-      console.error('   Error:', dbError.message);
-      console.error('   Code:', dbError.code || 'N/A');
       
-      // Información adicional para debugging
-      if (process.env.DATABASE_URL) {
+      try {
+        await prisma.$connect();
+        console.log('✅ Prisma connected successfully');
+        dbConnected = true;
+        
+        // Verificar y setup automático de la base de datos si es necesario
+        const dbReady = await checkDatabaseSetup();
+        if (!dbReady) {
+          await setupDatabase();
+        } else {
+          console.log('✅ Database tables already exist');
+        }
+      } catch (dbError: any) {
+        console.error('❌ Database connection failed:');
+        console.error('   Error:', dbError.message);
+        console.error('   Code:', dbError.code || 'N/A');
+        
+        // Información adicional para debugging
         try {
           const url = new URL(process.env.DATABASE_URL);
           if (url.hostname === 'postgres.railway.internal') {
@@ -206,27 +207,35 @@ async function start() {
             console.error('   Si no funciona, usa la URL pública del Postgres');
           }
         } catch {}
+        
+        console.error('');
+        console.error('💡 Verifica en Railway:');
+        console.error('   1. El servicio Postgres está en el mismo proyecto');
+        console.error('   2. DATABASE_URL está configurado correctamente');
+        console.error('   3. El servicio Postgres está "Online"');
+        console.error('   4. Si usas postgres.railway.internal, prueba con la URL pública');
+        console.error('');
+        console.error('⚠️  El servidor arrancará pero las rutas que usen la DB fallarán');
+        console.error('⚠️  Configura DATABASE_URL correctamente y reinicia el servicio');
       }
-      
-      console.error('');
-      console.error('💡 Verifica en Railway:');
-      console.error('   1. El servicio Postgres está en el mismo proyecto');
-      console.error('   2. DATABASE_URL está configurado correctamente');
-      console.error('   3. El servicio Postgres está "Online"');
-      console.error('   4. Si usas postgres.railway.internal, prueba con la URL pública');
-      throw new Error(`Database connection failed: ${dbError.message}`);
-    }
-    
-    // Verificar y setup automático de la base de datos si es necesario
-    const dbReady = await checkDatabaseSetup();
-    if (!dbReady) {
-      await setupDatabase();
     } else {
-      console.log('✅ Database tables already exist');
+      console.error('⚠️  DATABASE_URL environment variable is not set');
+      console.error('⚠️  El servidor arrancará pero las rutas que usen la DB fallarán');
     }
 
     // Registrar Prisma como decorator para que esté disponible en todas las rutas
-    fastify.decorate('prisma', prisma);
+    // Solo si la conexión fue exitosa
+    if (dbConnected) {
+      fastify.decorate('prisma', prisma);
+    } else {
+      // Decorator dummy que lanza error si se intenta usar la DB sin conexión
+      fastify.decorate('prisma', {
+        $connect: async () => { throw new Error('Database not connected. Please configure DATABASE_URL.'); },
+        $disconnect: async () => {},
+        $queryRaw: async () => { throw new Error('Database not connected. Please configure DATABASE_URL.'); },
+        usuario: { findUnique: async () => { throw new Error('Database not connected. Please configure DATABASE_URL.'); } },
+      } as any);
+    }
 
     await fastify.register(jwt, {
       secret: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
