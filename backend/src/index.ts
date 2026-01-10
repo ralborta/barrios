@@ -43,6 +43,11 @@ fastify.get('/health', async () => {
   return { status: 'ok', timestamp: new Date().toISOString() };
 });
 
+// Handler explícito para OPTIONS (CORS preflight)
+fastify.options('*', async (request, reply) => {
+  reply.code(200).send();
+});
+
 // Routes
 await fastify.register(authRoutes);
 await fastify.register(vecinosRoutes);
