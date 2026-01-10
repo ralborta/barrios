@@ -12,6 +12,7 @@ import { periodosRoutes } from './routes/periodos.js';
 import { expensasRoutes } from './routes/expensas.js';
 import { comprobantesRoutes } from './routes/comprobantes.js';
 import { mensajesRoutes } from './routes/mensajes.js';
+import { importRoutes } from './routes/import.js';
 
 const prisma = new PrismaClient();
 
@@ -250,6 +251,7 @@ async function start() {
     await fastify.register(expensasRoutes);
     await fastify.register(comprobantesRoutes);
     await fastify.register(mensajesRoutes);
+    await fastify.register(importRoutes);
 
     // NOTA: No necesitamos handler explícito de OPTIONS
     // @fastify/cors ya maneja OPTIONS automáticamente

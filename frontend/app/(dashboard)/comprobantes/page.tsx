@@ -32,10 +32,22 @@ import {
   Download,
   Filter,
   ArrowUpDown,
+  Upload,
+  Plus,
 } from "lucide-react"
-import { comprobantesApi } from "@/lib/api"
+import { comprobantesApi, vecinosApi, expensasApi } from "@/lib/api"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface ComprobanteData {
   id: string
@@ -92,10 +104,83 @@ export default function ComprobantesPage() {
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null)
+  const [uploadDialogOpen, setUploadDialogOpen] = React.useState(false)
+  const [uploadFile, setUploadFile] = React.useState<File | null>(null)
+  const [uploadVecinoId, setUploadVecinoId] = React.useState<string>("")
+  const [uploadExpensaId, setUploadExpensaId] = React.useState<string>("")
+  const [uploading, setUploading] = React.useState(false)
+  const [vecinos, setVecinos] = React.useState<Array<{ id: string; nombre: string; apellido: string; email: string }>>([])
+  const [expensas, setExpensas] = React.useState<Array<{ id: string; monto: number; periodo: { mes: number; anio: number; country: { name: string } } }>>([])
 
   React.useEffect(() => {
     fetchComprobantes()
   }, [estadoFilter])
+
+  React.useEffect(() => {
+    if (uploadDialogOpen) {
+      fetchVecinos()
+      if (uploadVecinoId) {
+        fetchExpensas(uploadVecinoId)
+      }
+    }
+  }, [uploadDialogOpen, uploadVecinoId])
+
+  const fetchVecinos = async () => {
+    const response = await vecinosApi.list()
+    if (response.success && response.data) {
+      const vecinosData = Array.isArray(response.data)
+        ? response.data
+        : (response.data as any)?.data || response.data
+      if (Array.isArray(vecinosData)) {
+        setVecinos(vecinosData)
+      }
+    }
+  }
+
+  const fetchExpensas = async (vecinoId: string) => {
+    const response = await expensasApi.list({ vecinoId })
+    if (response.success && response.data) {
+      const expensasData = Array.isArray(response.data)
+        ? response.data
+        : (response.data as any)?.data || response.data
+      if (Array.isArray(expensasData)) {
+        setExpensas(expensasData)
+      }
+    }
+  }
+
+  const handleUpload = async () => {
+    if (!uploadFile || !uploadVecinoId) {
+      alert('Por favor, selecciona un archivo y un vecino')
+      return
+    }
+
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', uploadFile)
+      formData.append('vecinoId', uploadVecinoId)
+      if (uploadExpensaId) {
+        formData.append('expensaId', uploadExpensaId)
+      }
+
+      const response = await comprobantesApi.create(formData)
+      
+      if (response.success) {
+        setUploadDialogOpen(false)
+        setUploadFile(null)
+        setUploadVecinoId("")
+        setUploadExpensaId("")
+        fetchComprobantes()
+      } else {
+        alert(response.error || 'Error al subir el comprobante')
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error al subir el comprobante')
+    } finally {
+      setUploading(false)
+    }
+  }
 
   const fetchComprobantes = async () => {
     setLoading(true)
@@ -326,11 +411,17 @@ export default function ComprobantesPage() {
             Gestiona los comprobantes recibidos de los vecinos
           </p>
         </div>
-        {comprobantesNuevos > 0 && (
-          <Badge variant="destructive" className="text-lg px-4 py-2">
-            {comprobantesNuevos} nuevo{comprobantesNuevos !== 1 ? "s" : ""}
-          </Badge>
-        )}
+        <div className="flex items-center gap-4">
+          {comprobantesNuevos > 0 && (
+            <Badge variant="destructive" className="text-lg px-4 py-2">
+              {comprobantesNuevos} nuevo{comprobantesNuevos !== 1 ? "s" : ""}
+            </Badge>
+          )}
+          <Button onClick={() => setUploadDialogOpen(true)}>
+            <Upload className="mr-2 h-4 w-4" />
+            Subir Comprobante
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -478,6 +569,107 @@ export default function ComprobantesPage() {
           </div>
         </div>
       )}
+
+      {/* Dialog de carga de comprobante */}
+      <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Subir Comprobante</DialogTitle>
+            <DialogDescription>
+              Selecciona un archivo y asócialo a un vecino
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="vecino">Vecino *</Label>
+              <Select value={uploadVecinoId} onValueChange={(value) => {
+                setUploadVecinoId(value)
+                setUploadExpensaId("")
+                if (value) {
+                  fetchExpensas(value)
+                }
+              }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un vecino" />
+                </SelectTrigger>
+                <SelectContent>
+                  {vecinos.map((vecino) => (
+                    <SelectItem key={vecino.id} value={vecino.id}>
+                      {vecino.nombre} {vecino.apellido} ({vecino.email})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {uploadVecinoId && expensas.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="expensa">Expensa (Opcional)</Label>
+                <Select value={uploadExpensaId} onValueChange={setUploadExpensaId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona una expensa (opcional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Sin vincular</SelectItem>
+                    {expensas.map((expensa) => (
+                      <SelectItem key={expensa.id} value={expensa.id}>
+                        {expensa.periodo.mes}/{expensa.periodo.anio} - {expensa.periodo.country.name} - ${expensa.monto.toLocaleString("es-AR", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="file">Archivo *</Label>
+              <Input
+                id="file"
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.gif"
+                onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                disabled={uploading}
+              />
+              {uploadFile && (
+                <div className="text-sm text-muted-foreground flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  {uploadFile.name} ({(uploadFile.size / 1024).toFixed(2)} KB)
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setUploadDialogOpen(false)
+                setUploadFile(null)
+                setUploadVecinoId("")
+                setUploadExpensaId("")
+              }}
+              disabled={uploading}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleUpload} disabled={!uploadFile || !uploadVecinoId || uploading}>
+              {uploading ? (
+                <>
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Subiendo...
+                </>
+              ) : (
+                <>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Subir
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

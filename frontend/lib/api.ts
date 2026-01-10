@@ -32,9 +32,13 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseURL}${endpoint}`;
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
+    const headers: Record<string, string> = {};
+
+    // Solo establecer Content-Type si no es FormData y no se proporcionó en options.headers
+    const isFormData = options.body instanceof FormData;
+    if (!isFormData && !options.headers) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     if (this.token) {
       headers['Authorization'] = `Bearer ${this.token}`;
@@ -114,9 +118,11 @@ class ApiClient {
   }
 
   async post<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+    const isFormData = data instanceof FormData;
+    
     return this.request<T>(endpoint, {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: isFormData ? data : JSON.stringify(data),
     });
   }
 
@@ -214,4 +220,22 @@ export const mensajesApi = {
   update: (id: string, data: any) => api.put(`/api/mensajes/${id}`, data),
   delete: (id: string) => api.delete(`/api/mensajes/${id}`),
   getByExpensa: (expensaId: string) => api.get(`/api/mensajes/expensa/${expensaId}`),
+};
+
+// Import endpoints
+export const importApi = {
+  importVecinos: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/api/import/vecinos', formData);
+  },
+  downloadTemplate: () => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    return fetch(`${API_URL}/api/import/vecinos/template`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+  },
 };
