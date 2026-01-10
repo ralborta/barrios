@@ -18,6 +18,9 @@ async function start() {
   });
 
   try {
+    // Registrar Prisma como decorator para que esté disponible en todas las rutas
+    fastify.decorate('prisma', prisma);
+
     // Plugins
     await fastify.register(cors, {
       origin: true,

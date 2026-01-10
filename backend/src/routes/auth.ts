@@ -1,9 +1,13 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { PrismaClient } from '@prisma/client';
 import { hashPassword, verifyPassword } from '../utils/password.js';
 import { z } from 'zod';
 
-const prisma = new PrismaClient();
+// Prisma se importa desde index.ts para evitar múltiples instancias
+declare module 'fastify' {
+  interface FastifyInstance {
+    prisma: any;
+  }
+}
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -23,7 +27,7 @@ export async function authRoutes(fastify: FastifyInstance) {
     try {
       const body = loginSchema.parse(request.body);
       
-      const usuario = await prisma.usuario.findUnique({
+      const usuario = await fastify.prisma.usuario.findUnique({
         where: { email: body.email },
       });
 
@@ -67,7 +71,7 @@ export async function authRoutes(fastify: FastifyInstance) {
     try {
       const body = registerSchema.parse(request.body);
       
-      const existingUser = await prisma.usuario.findUnique({
+      const existingUser = await fastify.prisma.usuario.findUnique({
         where: { email: body.email },
       });
 
@@ -77,7 +81,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       const passwordHash = hashPassword(body.password);
 
-      const usuario = await prisma.usuario.create({
+      const usuario = await fastify.prisma.usuario.create({
         data: {
           email: body.email,
           passwordHash,
@@ -118,7 +122,7 @@ export async function authRoutes(fastify: FastifyInstance) {
   }, async (request: FastifyRequest) => {
     const user = request.user as { id: string; email: string; nombre: string; rol: string };
     
-    const usuario = await prisma.usuario.findUnique({
+    const usuario = await fastify.prisma.usuario.findUnique({
       where: { id: user.id },
       select: {
         id: true,
