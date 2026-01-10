@@ -17,10 +17,10 @@ const fastify = Fastify({
 
 // Plugins
 await fastify.register(cors, {
-  origin: true, // Permitir todos los orígenes temporalmente para debug
+  origin: true,
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
 });
 
 await fastify.register(jwt, {
@@ -43,17 +43,17 @@ fastify.get('/health', async () => {
   return { status: 'ok', timestamp: new Date().toISOString() };
 });
 
-// Handler explícito para OPTIONS (CORS preflight)
-fastify.options('*', async (request, reply) => {
-  reply.code(200).send();
-});
-
-// Routes
+// Routes - Registrar ANTES del handler de OPTIONS
 await fastify.register(authRoutes);
 await fastify.register(vecinosRoutes);
 await fastify.register(countriesRoutes);
 await fastify.register(periodosRoutes);
 await fastify.register(expensasRoutes);
+
+// Handler explícito para OPTIONS (CORS preflight) - DESPUÉS de las rutas
+fastify.options('*', async (request, reply) => {
+  reply.code(200).send();
+});
 
 // Error handler
 fastify.setErrorHandler((error, request, reply) => {
