@@ -3,6 +3,8 @@ import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import multipart from '@fastify/multipart';
 import { PrismaClient } from '@prisma/client';
+import { execSync } from 'child_process';
+import { hashPassword } from './utils/password.js';
 import { authRoutes } from './routes/auth.js';
 import { vecinosRoutes } from './routes/vecinos.js';
 import { countriesRoutes } from './routes/countries.js';
@@ -11,6 +13,84 @@ import { expensasRoutes } from './routes/expensas.js';
 
 const prisma = new PrismaClient();
 
+// Función para verificar si las tablas existen
+async function checkDatabaseSetup() {
+  try {
+    // Intentar consultar la tabla usuarios
+    await prisma.$queryRaw`SELECT 1 FROM usuarios LIMIT 1`;
+    return true;
+  } catch (error: any) {
+    // Si la tabla no existe, el error contendrá "does not exist"
+    if (error?.message?.includes('does not exist') || error?.code === '42P01') {
+      return false;
+    }
+    // Otro error, lo relanzamos
+    throw error;
+  }
+}
+
+// Función para setup automático de la base de datos
+async function setupDatabase() {
+  console.log('📦 Database tables not found. Setting up database...');
+  
+  try {
+    // Ejecutar prisma db push para crear las tablas
+    console.log('🔧 Creating database tables...');
+    execSync('npx prisma db push --accept-data-loss', { 
+      stdio: 'inherit',
+      env: { ...process.env }
+    });
+    console.log('✅ Database tables created');
+    
+    // Ejecutar seed para crear usuarios
+    console.log('🌱 Seeding database...');
+    const adminEmail = 'admin@barrios.com';
+    const adminPassword = 'admin123';
+    
+    const existingAdmin = await prisma.usuario.findUnique({
+      where: { email: adminEmail },
+    });
+    
+    if (!existingAdmin) {
+      await prisma.usuario.create({
+        data: {
+          email: adminEmail,
+          nombre: 'Administrador',
+          passwordHash: hashPassword(adminPassword),
+          rol: 'ADMINISTRADOR',
+          activo: true,
+        },
+      });
+      console.log('✅ Admin user created');
+    }
+    
+    const operatorEmail = 'operador@barrios.com';
+    const operatorPassword = 'operador123';
+    
+    const existingOperator = await prisma.usuario.findUnique({
+      where: { email: operatorEmail },
+    });
+    
+    if (!existingOperator) {
+      await prisma.usuario.create({
+        data: {
+          email: operatorEmail,
+          nombre: 'Operador',
+          passwordHash: hashPassword(operatorPassword),
+          rol: 'OPERADOR',
+          activo: true,
+        },
+      });
+      console.log('✅ Operator user created');
+    }
+    
+    console.log('✅ Database setup completed');
+  } catch (error) {
+    console.error('❌ Error setting up database:', error);
+    throw error;
+  }
+}
+
 // Start server - Todo envuelto en función async
 async function start() {
   const fastify = Fastify({
@@ -18,6 +98,25 @@ async function start() {
   });
 
   try {
+    // Validar variables de entorno críticas ANTES de continuar
+    if (!process.env.DATABASE_URL) {
+      throw new Error('❌ DATABASE_URL environment variable is required but not found');
+    }
+
+    // Conectar Prisma al inicio (fail fast)
+    // Si falta DATABASE_URL o hay error de conexión, el servicio falla al boot
+    console.log('🔌 Connecting to database...');
+    await prisma.$connect();
+    console.log('✅ Prisma connected successfully');
+    
+    // Verificar y setup automático de la base de datos si es necesario
+    const dbReady = await checkDatabaseSetup();
+    if (!dbReady) {
+      await setupDatabase();
+    } else {
+      console.log('✅ Database tables already exist');
+    }
+
     // Registrar Prisma como decorator para que esté disponible en todas las rutas
     fastify.decorate('prisma', prisma);
 
@@ -59,9 +158,18 @@ async function start() {
     // NOTA: No necesitamos handler explícito de OPTIONS
     // @fastify/cors ya maneja OPTIONS automáticamente
 
-    // Error handler
+    // Error handler con mejor logging
     fastify.setErrorHandler((error, request, reply) => {
-      fastify.log.error(error);
+      // Log completo del error (incluyendo stack trace)
+      fastify.log.error({
+        error: error.message,
+        stack: error.stack,
+        statusCode: error.statusCode,
+        url: request.url,
+        method: request.method,
+      });
+      
+      // Respuesta genérica al cliente (sin exponer detalles)
       reply.status(error.statusCode || 500).send({
         error: error.message || 'Internal Server Error',
       });
@@ -78,8 +186,15 @@ async function start() {
     console.log(`✅ Server successfully started on http://0.0.0.0:${port}`);
     console.log(`🌐 Server is ready to accept connections`);
   } catch (err) {
+    // Log detallado del error de startup
+    if (err instanceof Error) {
+      console.error('❌ Error starting server:');
+      console.error('   Message:', err.message);
+      console.error('   Stack:', err.stack);
+    } else {
+      console.error('❌ Error starting server:', err);
+    }
     fastify.log.error(err);
-    console.error('❌ Error starting server:', err);
     process.exit(1);
   }
 }
