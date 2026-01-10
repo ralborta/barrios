@@ -17,36 +17,10 @@ const fastify = Fastify({
 
 // Plugins
 await fastify.register(cors, {
-  origin: (origin, cb) => {
-    const allowedOrigins = [
-      process.env.FRONTEND_URL,
-      'http://localhost:3000',
-      'http://localhost:3001',
-    ].filter(Boolean);
-    
-    // Permitir peticiones sin origin (como desde Postman o curl)
-    if (!origin) {
-      cb(null, true);
-      return;
-    }
-    
-    // Permitir si está en la lista de orígenes permitidos
-    if (allowedOrigins.includes(origin)) {
-      cb(null, true);
-      return;
-    }
-    
-    // Por ahora, permitir todos los orígenes en desarrollo
-    // En producción, esto debería ser más restrictivo
-    if (process.env.NODE_ENV !== 'production') {
-      cb(null, true);
-      return;
-    }
-    
-    // En producción, rechazar si no está en la lista
-    cb(new Error('Not allowed by CORS'), false);
-  },
+  origin: true, // Permitir todos los orígenes temporalmente para debug
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 });
 
 await fastify.register(jwt, {
