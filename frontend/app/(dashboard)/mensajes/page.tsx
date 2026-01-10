@@ -168,7 +168,6 @@ export default function MensajesPage() {
                 <SelectValue placeholder="Canal" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos los canales</SelectItem>
                 <SelectItem value="WHATSAPP">WhatsApp</SelectItem>
                 <SelectItem value="EMAIL">Email</SelectItem>
               </SelectContent>
@@ -178,7 +177,6 @@ export default function MensajesPage() {
                 <SelectValue placeholder="Tipo" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos los tipos</SelectItem>
                 <SelectItem value="EMISION">Emisión</SelectItem>
                 <SelectItem value="RECORDATORIO_VENCIMIENTO">Recordatorio</SelectItem>
                 <SelectItem value="SEGUIMIENTO">Seguimiento</SelectItem>
@@ -192,7 +190,6 @@ export default function MensajesPage() {
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos los estados</SelectItem>
                 <SelectItem value="ENVIADO">Enviado</SelectItem>
                 <SelectItem value="ENTREGADO">Entregado</SelectItem>
                 <SelectItem value="LEIDO">Leído</SelectItem>

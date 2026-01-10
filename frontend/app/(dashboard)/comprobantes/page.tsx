@@ -609,7 +609,6 @@ export default function ComprobantesPage() {
                     <SelectValue placeholder="Selecciona una expensa (opcional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Sin vincular</SelectItem>
                     {expensas.map((expensa) => (
                       <SelectItem key={expensa.id} value={expensa.id}>
                         {expensa.periodo.mes}/{expensa.periodo.anio} - {expensa.periodo.country.name} - ${expensa.monto.toLocaleString("es-AR", {
