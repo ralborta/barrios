@@ -156,6 +156,12 @@ async function start() {
         console.log('📡 Database host:', url.hostname);
         console.log('📡 Database port:', url.port || '5432 (default)');
         console.log('📡 Database name:', url.pathname.replace('/', ''));
+        
+        // Advertencia si usa URL interna
+        if (url.hostname === 'postgres.railway.internal') {
+          console.warn('⚠️  Estás usando postgres.railway.internal (URL interna)');
+          console.warn('   Si falla la conexión, usa la URL pública del Postgres');
+        }
       } catch {
         console.log('📡 DATABASE_URL:', `${process.env.DATABASE_URL.substring(0, 30)}...`);
       }
@@ -182,6 +188,12 @@ async function start() {
             console.error('   1. El servicio Postgres está en el mismo proyecto');
             console.error('   2. Ambos servicios están "Online"');
             console.error('   Si no funciona, usa la URL pública del Postgres');
+            console.error('');
+            console.error('📝 Cómo obtener la URL pública:');
+            console.error('   1. Railway Dashboard → Servicio Postgres');
+            console.error('   2. Variables → Busca DATABASE_URL o POSTGRES_URL');
+            console.error('   3. Si solo ves postgres.railway.internal, busca otra variable');
+            console.error('   4. O ve a Settings → Networking → Habilita Public Networking');
           }
         } catch {}
       }
