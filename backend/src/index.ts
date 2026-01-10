@@ -53,10 +53,8 @@ async function start() {
     await fastify.register(periodosRoutes);
     await fastify.register(expensasRoutes);
 
-    // Handler explícito para OPTIONS (CORS preflight)
-    fastify.options('*', async (request, reply) => {
-      reply.code(200).send();
-    });
+    // NOTA: No necesitamos handler explícito de OPTIONS
+    // @fastify/cors ya maneja OPTIONS automáticamente
 
     // Error handler
     fastify.setErrorHandler((error, request, reply) => {
