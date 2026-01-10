@@ -59,6 +59,16 @@ model Periodo {
   fechaVencimiento DateTime
   fechaCierre DateTime?
   
+  // Configuración de cronjobs y automatización
+  diasRecordatorioAntes Int @default(3) // Días antes del vencimiento para enviar recordatorios
+  diasMora Int @default(1) // Días después del vencimiento para cambiar a EN_MORA
+  frecuenciaSeguimiento Int @default(7) // Cada cuántos días enviar seguimientos (en mora)
+  maxSeguimientos Int @default(3) // Máximo de seguimientos antes de cambiar a EN_RECUPERO
+  canalesRecordatorio String @default("WHATSAPP") // Canales para recordatorios: WHATSAPP,EMAIL o ambos separados por coma
+  canalesSeguimiento String @default("WHATSAPP") // Canales para seguimientos: WHATSAPP,EMAIL o ambos separados por coma
+  habilitarRecordatorios Boolean @default(true) // Habilitar recordatorios automáticos
+  habilitarSeguimientos Boolean @default(true) // Habilitar seguimientos automáticos
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   

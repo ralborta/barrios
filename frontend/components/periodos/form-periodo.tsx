@@ -16,8 +16,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 import { periodosApi, countriesApi } from "@/lib/api"
 import { format } from "date-fns"
+import { Separator } from "@/components/ui/separator"
 
 const periodoSchema = z.object({
   countryId: z.string().min(1, "El country es requerido"),
@@ -26,6 +28,15 @@ const periodoSchema = z.object({
   montoBase: z.number().positive("El monto base debe ser mayor a 0"),
   fechaVencimiento: z.string().min(1, "La fecha de vencimiento es requerida"),
   fechaCierre: z.string().optional(),
+  // Configuración de cronjobs
+  diasRecordatorioAntes: z.number().min(0).max(30).optional(),
+  diasMora: z.number().min(0).max(30).optional(),
+  frecuenciaSeguimiento: z.number().min(1).max(30).optional(),
+  maxSeguimientos: z.number().min(1).max(10).optional(),
+  canalesRecordatorio: z.string().optional(),
+  canalesSeguimiento: z.string().optional(),
+  habilitarRecordatorios: z.boolean().optional(),
+  habilitarSeguimientos: z.boolean().optional(),
 })
 
 type PeriodoFormData = z.infer<typeof periodoSchema>
@@ -77,6 +88,14 @@ export function FormPeriodo({ open, onOpenChange, periodoId, onSuccess }: FormPe
         mes: now.getMonth() + 1,
         anio: now.getFullYear(),
         fechaVencimiento: format(new Date(now.getFullYear(), now.getMonth() + 1, 10), "yyyy-MM-dd"),
+        diasRecordatorioAntes: 3,
+        diasMora: 1,
+        frecuenciaSeguimiento: 7,
+        maxSeguimientos: 3,
+        canalesRecordatorio: "WHATSAPP",
+        canalesSeguimiento: "WHATSAPP",
+        habilitarRecordatorios: true,
+        habilitarSeguimientos: true,
       })
     }
   }, [periodoId, open])
@@ -111,6 +130,14 @@ export function FormPeriodo({ open, onOpenChange, periodoId, onSuccess }: FormPe
           fechaCierre: periodo.fechaCierre
             ? format(new Date(periodo.fechaCierre), "yyyy-MM-dd")
             : "",
+          diasRecordatorioAntes: periodo.diasRecordatorioAntes ?? 3,
+          diasMora: periodo.diasMora ?? 1,
+          frecuenciaSeguimiento: periodo.frecuenciaSeguimiento ?? 7,
+          maxSeguimientos: periodo.maxSeguimientos ?? 3,
+          canalesRecordatorio: periodo.canalesRecordatorio ?? "WHATSAPP",
+          canalesSeguimiento: periodo.canalesSeguimiento ?? "WHATSAPP",
+          habilitarRecordatorios: periodo.habilitarRecordatorios ?? true,
+          habilitarSeguimientos: periodo.habilitarSeguimientos ?? true,
         })
       }
     }
@@ -257,6 +284,136 @@ export function FormPeriodo({ open, onOpenChange, periodoId, onSuccess }: FormPe
                 {...register("fechaCierre")}
                 disabled={loading}
               />
+            </div>
+          </div>
+
+          <Separator className="my-4" />
+
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Configuración de Automatización</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Configura los parámetros para los recordatorios y seguimientos automáticos
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="habilitarRecordatorios"
+                  checked={watch("habilitarRecordatorios") ?? true}
+                  onCheckedChange={(checked) => setValue("habilitarRecordatorios", checked as boolean)}
+                  disabled={loading}
+                />
+                <Label htmlFor="habilitarRecordatorios" className="font-normal cursor-pointer">
+                  Habilitar recordatorios automáticos
+                </Label>
+              </div>
+
+              {watch("habilitarRecordatorios") && (
+                <div className="grid grid-cols-2 gap-4 ml-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="diasRecordatorioAntes">Días antes del vencimiento</Label>
+                    <Input
+                      id="diasRecordatorioAntes"
+                      type="number"
+                      min="0"
+                      max="30"
+                      {...register("diasRecordatorioAntes", { valueAsNumber: true })}
+                      placeholder="3"
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="canalesRecordatorio">Canales</Label>
+                    <Select
+                      value={watch("canalesRecordatorio") || "WHATSAPP"}
+                      onValueChange={(value) => setValue("canalesRecordatorio", value)}
+                      disabled={loading}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="WHATSAPP">WhatsApp</SelectItem>
+                        <SelectItem value="EMAIL">Email</SelectItem>
+                        <SelectItem value="WHATSAPP,EMAIL">WhatsApp y Email</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="diasMora">Días después del vencimiento para cambiar a MORA</Label>
+                <Input
+                  id="diasMora"
+                  type="number"
+                  min="0"
+                  max="30"
+                  {...register("diasMora", { valueAsNumber: true })}
+                  placeholder="1"
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="habilitarSeguimientos"
+                  checked={watch("habilitarSeguimientos") ?? true}
+                  onCheckedChange={(checked) => setValue("habilitarSeguimientos", checked as boolean)}
+                  disabled={loading}
+                />
+                <Label htmlFor="habilitarSeguimientos" className="font-normal cursor-pointer">
+                  Habilitar seguimientos automáticos
+                </Label>
+              </div>
+
+              {watch("habilitarSeguimientos") && (
+                <div className="grid grid-cols-2 gap-4 ml-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="frecuenciaSeguimiento">Frecuencia (días)</Label>
+                    <Input
+                      id="frecuenciaSeguimiento"
+                      type="number"
+                      min="1"
+                      max="30"
+                      {...register("frecuenciaSeguimiento", { valueAsNumber: true })}
+                      placeholder="7"
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="maxSeguimientos">Máximo de seguimientos</Label>
+                    <Input
+                      id="maxSeguimientos"
+                      type="number"
+                      min="1"
+                      max="10"
+                      {...register("maxSeguimientos", { valueAsNumber: true })}
+                      placeholder="3"
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="canalesSeguimiento">Canales</Label>
+                    <Select
+                      value={watch("canalesSeguimiento") || "WHATSAPP"}
+                      onValueChange={(value) => setValue("canalesSeguimiento", value)}
+                      disabled={loading}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="WHATSAPP">WhatsApp</SelectItem>
+                        <SelectItem value="EMAIL">Email</SelectItem>
+                        <SelectItem value="WHATSAPP,EMAIL">WhatsApp y Email</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

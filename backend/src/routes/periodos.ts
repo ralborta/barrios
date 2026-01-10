@@ -11,6 +11,15 @@ const periodoSchema = z.object({
   montoBase: z.number().positive(),
   fechaVencimiento: z.string().datetime(),
   fechaCierre: z.string().datetime().optional(),
+  // Configuración de cronjobs
+  diasRecordatorioAntes: z.number().min(0).max(30).optional(),
+  diasMora: z.number().min(0).max(30).optional(),
+  frecuenciaSeguimiento: z.number().min(1).max(30).optional(),
+  maxSeguimientos: z.number().min(1).max(10).optional(),
+  canalesRecordatorio: z.string().optional(),
+  canalesSeguimiento: z.string().optional(),
+  habilitarRecordatorios: z.boolean().optional(),
+  habilitarSeguimientos: z.boolean().optional(),
 });
 
 const updatePeriodoSchema = periodoSchema.partial();
