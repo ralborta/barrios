@@ -68,10 +68,14 @@ async function start() {
 
     // Start server
     const port = Number(process.env.PORT) || 3001;
-    await fastify.listen({ port, host: '0.0.0.0' });
-    console.log(`🚀 Server running on http://0.0.0.0:${port}`);
+    console.log(`🔧 Attempting to start server on port ${port}...`);
     console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🔑 JWT Secret configured: ${!!process.env.JWT_SECRET}`);
+    console.log(`📦 Database URL configured: ${!!process.env.DATABASE_URL}`);
+    
+    await fastify.listen({ port, host: '0.0.0.0' });
+    console.log(`✅ Server successfully started on http://0.0.0.0:${port}`);
+    console.log(`🌐 Server is ready to accept connections`);
   } catch (err) {
     fastify.log.error(err);
     console.error('❌ Error starting server:', err);
