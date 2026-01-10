@@ -335,7 +335,7 @@ export default function ComprobantesPage() {
               onChange={(e) => setGlobalFilter(e.target.value)}
               className="max-w-sm"
             />
-            <Select value={estadoFilter} onValueChange={setEstadoFilter}>
+            <Select value={estadoFilter || undefined} onValueChange={(value) => setEstadoFilter(value || "")}>
               <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="Filtrar por estado" />
               </SelectTrigger>
