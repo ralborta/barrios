@@ -9,7 +9,8 @@ import {
   FileText, 
   Upload, 
   BarChart3,
-  Check
+  Check,
+  MessageSquare
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -27,6 +28,7 @@ const navigation = [
   { name: "Expensas", href: "/expensas", icon: Building2 },
   { name: "Vecinos", href: "/vecinos", icon: Users },
   { name: "Comprobantes", href: "/comprobantes", icon: FileText },
+  { name: "Mensajes", href: "/mensajes", icon: MessageSquare },
   { name: "Importar CSV", href: "/importar", icon: Upload },
   { name: "Reportes", href: "/reportes", icon: BarChart3 },
 ]
