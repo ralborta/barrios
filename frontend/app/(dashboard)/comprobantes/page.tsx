@@ -78,7 +78,6 @@ const getEstadoBadge = (estado: string) => {
 }
 
 const estados = [
-  { value: "", label: "Todos los estados" },
   { value: "NUEVO", label: "Nuevo" },
   { value: "REVISADO", label: "Revisado" },
   { value: "CONFIRMADO", label: "Confirmado" },
