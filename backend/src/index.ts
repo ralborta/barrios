@@ -14,6 +14,8 @@ import { comprobantesRoutes } from './routes/comprobantes.js';
 import { mensajesRoutes } from './routes/mensajes.js';
 import { importRoutes } from './routes/import.js';
 import { pagosRoutes } from './routes/pagos.js';
+import { jobsRoutes } from './routes/jobs.js';
+import cron from 'node-cron';
 
 const prisma = new PrismaClient();
 
@@ -254,6 +256,27 @@ async function start() {
     await fastify.register(mensajesRoutes);
     await fastify.register(importRoutes);
     await fastify.register(pagosRoutes);
+    await fastify.register(jobsRoutes);
+    
+    // Configurar cronjobs (ejecutar cada hora)
+    // En producción, esto se puede configurar desde variables de entorno
+    if (process.env.ENABLE_CRONJOBS !== 'false') {
+      console.log('⏰ Configurando cronjobs...');
+      
+      // Ejecutar todos los jobs cada hora (a los :00 minutos)
+      cron.schedule('0 * * * *', async () => {
+        console.log('🔄 Ejecutando jobs programados...');
+        try {
+          const { ejecutarTodosLosJobs } = await import('./jobs/index.js');
+          const resultados = await ejecutarTodosLosJobs();
+          console.log('✅ Jobs ejecutados:', resultados);
+        } catch (error: any) {
+          console.error('❌ Error ejecutando jobs:', error);
+        }
+      });
+      
+      console.log('✅ Cronjobs configurados (cada hora)');
+    }
 
     // NOTA: No necesitamos handler explícito de OPTIONS
     // @fastify/cors ya maneja OPTIONS automáticamente
