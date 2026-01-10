@@ -36,6 +36,7 @@ import { useExpensas } from "@/hooks/use-expensas"
 import { expensasApi } from "@/lib/api"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
+import { FormExpensa } from "@/components/expensas/form-expensa"
 
 interface ExpensaData {
   id: string
@@ -96,6 +97,8 @@ export default function ExpensasPage() {
   const [globalFilter, setGlobalFilter] = React.useState("")
   const [estadoFilter, setEstadoFilter] = React.useState<string>("")
   const [selectedRows, setSelectedRows] = React.useState<string[]>([])
+  const [formOpen, setFormOpen] = React.useState(false)
+  const [editingExpensaId, setEditingExpensaId] = React.useState<string | undefined>()
 
   const { expensas, loading, error, refetch } = useExpensas(
     estadoFilter ? { estado: estadoFilter } : undefined
@@ -304,8 +307,8 @@ export default function ExpensasPage() {
   })
 
   const handleEdit = (id: string) => {
-    // TODO: Abrir modal de edición
-    console.log("Editar expensa:", id)
+    setEditingExpensaId(id)
+    setFormOpen(true)
   }
 
   const handleDelete = async (id: string) => {
@@ -343,7 +346,10 @@ export default function ExpensasPage() {
             Gestiona las expensas de los vecinos
           </p>
         </div>
-        <Button>
+        <Button onClick={() => {
+          setEditingExpensaId(undefined)
+          setFormOpen(true)
+        }}>
           <Plus className="mr-2 h-4 w-4" />
           Nueva Expensa
         </Button>
@@ -491,6 +497,18 @@ export default function ExpensasPage() {
           )}
         </CardContent>
       </Card>
+
+      <FormExpensa
+        open={formOpen}
+        onOpenChange={(open) => {
+          setFormOpen(open)
+          if (!open) setEditingExpensaId(undefined)
+        }}
+        expensaId={editingExpensaId}
+        onSuccess={() => {
+          refetch()
+        }}
+      />
     </div>
   )
 }
