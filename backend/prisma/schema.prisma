@@ -12,100 +12,100 @@ datasource db {
 
 // Modelo de Country/Barrio
 model Country {
-  id          String   @id @default(cuid())
-  name        String
-  address     String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  vecinos     Vecino[]
-  periodos    Periodo[]
-  
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  vecinos  Vecino[]
+  periodos Periodo[]
+
   @@map("countries")
 }
 
 // Modelo de Vecino
 model Vecino {
-  id          String   @id @default(cuid())
-  countryId   String
-  country     Country  @relation(fields: [countryId], references: [id], onDelete: Cascade)
-  
-  nombre      String
-  apellido    String
-  email       String
-  telefono    String?
-  unidad      String?  // Ej: "Casa 12", "Lote 5"
+  id        String  @id @default(cuid())
+  countryId String
+  country   Country @relation(fields: [countryId], references: [id], onDelete: Cascade)
+
+  nombre        String
+  apellido      String
+  email         String
+  telefono      String?
+  unidad        String? // Ej: "Casa 12", "Lote 5"
   observaciones String?
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  expensas    Expensa[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  expensas     Expensa[]
   comprobantes Comprobante[]
-  mensajes    Mensaje[]
-  
+  mensajes     Mensaje[]
+
   @@map("vecinos")
 }
 
 // Modelo de Período (mes/año de expensas)
 model Periodo {
-  id          String   @id @default(cuid())
-  countryId   String
-  country     Country  @relation(fields: [countryId], references: [id], onDelete: Cascade)
-  
-  mes         Int      // 1-12
-  anio        Int
-  montoBase   Decimal  @db.Decimal(10, 2)
+  id        String  @id @default(cuid())
+  countryId String
+  country   Country @relation(fields: [countryId], references: [id], onDelete: Cascade)
+
+  mes              Int // 1-12
+  anio             Int
+  montoBase        Decimal   @db.Decimal(10, 2)
   fechaVencimiento DateTime
-  fechaCierre DateTime?
-  
+  fechaCierre      DateTime?
+
   // Configuración de cronjobs y automatización
-  diasRecordatorioAntes Int @default(3) // Días antes del vencimiento para enviar recordatorios
-  diasMora Int @default(1) // Días después del vencimiento para cambiar a EN_MORA
-  frecuenciaSeguimiento Int @default(7) // Cada cuántos días enviar seguimientos (en mora)
-  maxSeguimientos Int @default(3) // Máximo de seguimientos antes de cambiar a EN_RECUPERO
-  canalesRecordatorio String @default("WHATSAPP") // Canales para recordatorios: WHATSAPP,EMAIL o ambos separados por coma
-  canalesSeguimiento String @default("WHATSAPP") // Canales para seguimientos: WHATSAPP,EMAIL o ambos separados por coma
+  diasRecordatorioAntes  Int     @default(3) // Días antes del vencimiento para enviar recordatorios
+  diasMora               Int     @default(1) // Días después del vencimiento para cambiar a EN_MORA
+  frecuenciaSeguimiento  Int     @default(7) // Cada cuántos días enviar seguimientos (en mora)
+  maxSeguimientos        Int     @default(3) // Máximo de seguimientos antes de cambiar a EN_RECUPERO
+  canalesRecordatorio    String  @default("WHATSAPP") // Canales para recordatorios: WHATSAPP,EMAIL o ambos separados por coma
+  canalesSeguimiento     String  @default("WHATSAPP") // Canales para seguimientos: WHATSAPP,EMAIL o ambos separados por coma
   habilitarRecordatorios Boolean @default(true) // Habilitar recordatorios automáticos
-  habilitarSeguimientos Boolean @default(true) // Habilitar seguimientos automáticos
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  expensas    Expensa[]
-  
+  habilitarSeguimientos  Boolean @default(true) // Habilitar seguimientos automáticos
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  expensas Expensa[]
+
   @@unique([countryId, mes, anio])
   @@map("periodos")
 }
 
 // Modelo de Expensa (expensa individual por vecino)
 model Expensa {
-  id          String   @id @default(cuid())
-  periodoId   String
-  periodo     Periodo  @relation(fields: [periodoId], references: [id], onDelete: Cascade)
-  vecinoId    String
-  vecino      Vecino   @relation(fields: [vecinoId], references: [id], onDelete: Cascade)
-  
-  monto       Decimal  @db.Decimal(10, 2)
-  estado      EstadoExpensa @default(PENDIENTE)
-  
+  id        String  @id @default(cuid())
+  periodoId String
+  periodo   Periodo @relation(fields: [periodoId], references: [id], onDelete: Cascade)
+  vecinoId  String
+  vecino    Vecino  @relation(fields: [vecinoId], references: [id], onDelete: Cascade)
+
+  monto  Decimal       @db.Decimal(10, 2)
+  estado EstadoExpensa @default(PENDIENTE)
+
   // Fechas de seguimiento
-  fechaVencimiento DateTime
+  fechaVencimiento       DateTime
   fechaUltimoSeguimiento DateTime?
-  proximoSeguimiento DateTime?
-  
+  proximoSeguimiento     DateTime?
+
   // Contador de seguimientos
   contadorSeguimientos Int @default(0)
-  
+
   // Mes de mora (null si no está en mora)
-  mesMora     Int?
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  mensajes    Mensaje[]
+  mesMora Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  mensajes     Mensaje[]
   comprobantes Comprobante[]
-  
+
   @@unique([periodoId, vecinoId])
   @@map("expensas")
 }
@@ -123,26 +123,26 @@ enum EstadoExpensa {
 
 // Modelo de Mensaje (comunicaciones)
 model Mensaje {
-  id          String   @id @default(cuid())
-  expensaId   String?
-  expensa     Expensa? @relation(fields: [expensaId], references: [id], onDelete: SetNull)
-  vecinoId    String
-  vecino      Vecino   @relation(fields: [vecinoId], references: [id], onDelete: Cascade)
-  
-  canal       CanalMensaje
-  tipo        TipoMensaje
-  contenido   String?
-  estado      EstadoMensaje @default(ENVIADO)
-  
+  id        String   @id @default(cuid())
+  expensaId String?
+  expensa   Expensa? @relation(fields: [expensaId], references: [id], onDelete: SetNull)
+  vecinoId  String
+  vecino    Vecino   @relation(fields: [vecinoId], references: [id], onDelete: Cascade)
+
+  canal     CanalMensaje
+  tipo      TipoMensaje
+  contenido String?
+  estado    EstadoMensaje @default(ENVIADO)
+
   // Para WhatsApp
-  whatsappId  String?
-  
+  whatsappId String?
+
   // Para Email
-  emailId     String?
-  asunto      String?
-  
-  createdAt   DateTime @default(now())
-  
+  emailId String?
+  asunto  String?
+
+  createdAt DateTime @default(now())
+
   @@map("mensajes")
 }
 
@@ -170,22 +170,22 @@ enum EstadoMensaje {
 
 // Modelo de Comprobante
 model Comprobante {
-  id          String   @id @default(cuid())
-  expensaId   String?
-  expensa     Expensa? @relation(fields: [expensaId], references: [id], onDelete: SetNull)
-  vecinoId    String
-  vecino      Vecino   @relation(fields: [vecinoId], references: [id], onDelete: Cascade)
-  
-  url         String   // URL del archivo almacenado
-  tipoArchivo String   // image/jpeg, application/pdf, etc.
+  id        String   @id @default(cuid())
+  expensaId String?
+  expensa   Expensa? @relation(fields: [expensaId], references: [id], onDelete: SetNull)
+  vecinoId  String
+  vecino    Vecino   @relation(fields: [vecinoId], references: [id], onDelete: Cascade)
+
+  url           String // URL del archivo almacenado
+  tipoArchivo   String // image/jpeg, application/pdf, etc.
   nombreArchivo String
-  
-  estado      EstadoComprobante @default(NUEVO)
+
+  estado        EstadoComprobante @default(NUEVO)
   observaciones String?
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@map("comprobantes")
 }
 
@@ -198,17 +198,17 @@ enum EstadoComprobante {
 
 // Modelo de Usuario (administradores del sistema)
 model Usuario {
-  id          String   @id @default(cuid())
-  email       String   @unique
-  nombre      String
+  id           String @id @default(cuid())
+  email        String @unique
+  nombre       String
   passwordHash String
-  
-  rol         RolUsuario @default(OPERADOR)
-  activo      Boolean  @default(true)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+
+  rol    RolUsuario @default(OPERADOR)
+  activo Boolean    @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@map("usuarios")
 }
 

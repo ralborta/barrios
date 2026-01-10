@@ -51,6 +51,10 @@ export async function enviarSeguimientos(
           },
         },
       ],
+      // Solo expensas de períodos con seguimientos habilitados
+      periodo: {
+        habilitarSeguimientos: true,
+      },
     },
     include: {
       vecino: {
@@ -73,8 +77,15 @@ export async function enviarSeguimientos(
     try {
       const mesesMora = expensa.mesMora || 1;
       
+      // Usar configuración del período si está disponible
+      const periodoConfig = {
+        canales: expensa.periodo.canalesSeguimiento?.split(',') as ('WHATSAPP' | 'EMAIL')[] || config.canales,
+        frecuencia: expensa.periodo.frecuenciaSeguimiento || config.frecuencia,
+        maxSeguimientos: expensa.periodo.maxSeguimientos || config.maxSeguimientos,
+      };
+      
       // Enviar por WhatsApp
-      if (config.canales.includes('WHATSAPP') && expensa.vecino.telefono) {
+      if (periodoConfig.canales.includes('WHATSAPP') && expensa.vecino.telefono) {
         const resultado = await sendMoraWhatsApp(
           expensa.vecino.telefono,
           `${expensa.vecino.nombre} ${expensa.vecino.apellido}`,
@@ -98,7 +109,7 @@ export async function enviarSeguimientos(
       }
       
       // Enviar por Email
-      if (config.canales.includes('EMAIL')) {
+      if (periodoConfig.canales.includes('EMAIL')) {
         const resultado = await sendMoraEmail(
           expensa.vecino.email,
           `${expensa.vecino.nombre} ${expensa.vecino.apellido}`,
@@ -124,7 +135,7 @@ export async function enviarSeguimientos(
       
       // Actualizar seguimiento
       const proximoSeguimiento = new Date(hoy);
-      proximoSeguimiento.setDate(proximoSeguimiento.getDate() + config.frecuencia);
+      proximoSeguimiento.setDate(proximoSeguimiento.getDate() + periodoConfig.frecuencia);
       
       await prisma.expensa.update({
         where: { id: expensa.id },
@@ -135,7 +146,7 @@ export async function enviarSeguimientos(
             increment: 1,
           },
           // Si alcanzó el máximo, cambiar a EN_RECUPERO
-          ...(expensa.contadorSeguimientos + 1 >= config.maxSeguimientos && {
+          ...(expensa.contadorSeguimientos + 1 >= periodoConfig.maxSeguimientos && {
             estado: 'EN_RECUPERO' as any,
           }),
         },

@@ -69,22 +69,14 @@ export async function webhooksRoutes(fastify: FastifyInstance) {
       });
 
       if (!vecino) {
-        // Guardar mensaje sin vecino asociado (requiere revisión manual)
-        await fastify.prisma.mensaje.create({
-          data: {
-            vecinoId: '', // Temporal, requiere revisión
-            canal: 'WHATSAPP',
-            tipo: 'MANUAL',
-            contenido: text || 'Mensaje sin texto',
-            whatsappId: resultado.messageId,
-            estado: 'ENVIADO',
-          },
-        });
-
+        // No guardar mensaje si no se encuentra vecino (requiere revisión manual)
+        fastify.log.warn(`Mensaje de WhatsApp recibido de número desconocido: ${from}`);
+        
         return reply.send({
           success: true,
           message: 'Mensaje recibido, pero no se encontró vecino asociado',
           requiereRevision: true,
+          from,
         });
       }
 

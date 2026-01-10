@@ -29,15 +29,17 @@ export async function cambiarEstadoAMora(
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
   
-  const fechaLimite = new Date(hoy);
-  fechaLimite.setDate(fechaLimite.getDate() - config.diasDespuesVencimiento);
-  
   // Buscar expensas vencidas que aún están en PENDIENTE
+  // Usaremos la configuración de cada período individualmente
   const expensas = await prisma.expensa.findMany({
     where: {
       estado: 'PENDIENTE',
       fechaVencimiento: {
-        lte: fechaLimite,
+        lte: hoy, // Buscar todas las vencidas, luego filtraremos por díasMora del período
+      },
+      // Solo expensas de períodos con automatización habilitada
+      periodo: {
+        habilitarRecordatorios: true,
       },
     },
     include: {
@@ -60,10 +62,24 @@ export async function cambiarEstadoAMora(
   
   for (const expensa of expensas) {
     try {
-      // Calcular mes de mora
-      const mesesMora = Math.ceil(
-        (hoy.getTime() - expensa.fechaVencimiento.getTime()) / (1000 * 60 * 60 * 24 * 30)
+      // Usar configuración del período si está disponible
+      const diasMoraPeriodo = expensa.periodo.diasMora || config.diasDespuesVencimiento;
+      
+      // Verificar si ya pasaron los días configurados desde el vencimiento
+      const diasDesdeVencimiento = Math.ceil(
+        (hoy.getTime() - expensa.fechaVencimiento.getTime()) / (1000 * 60 * 60 * 24)
       );
+      
+      if (diasDesdeVencimiento < diasMoraPeriodo) {
+        continue; // Aún no es momento de cambiar a mora según la configuración del período
+      }
+      
+      // Calcular mes de mora
+      const mesesMora = Math.ceil(diasDesdeVencimiento / 30);
+      
+      const periodoConfig = {
+        canales: expensa.periodo.canalesRecordatorio?.split(',') as ('WHATSAPP' | 'EMAIL')[] || config.canales,
+      };
       
       // Actualizar estado
       await prisma.expensa.update({
@@ -80,7 +96,7 @@ export async function cambiarEstadoAMora(
       if (config.enviarNotificacion) {
         try {
           // Enviar por WhatsApp
-          if (config.canales.includes('WHATSAPP') && expensa.vecino.telefono) {
+          if (periodoConfig.canales.includes('WHATSAPP') && expensa.vecino.telefono) {
             const resultado = await sendMoraWhatsApp(
               expensa.vecino.telefono,
               `${expensa.vecino.nombre} ${expensa.vecino.apellido}`,
@@ -105,7 +121,7 @@ export async function cambiarEstadoAMora(
           }
           
           // Enviar por Email
-          if (config.canales.includes('EMAIL')) {
+          if (periodoConfig.canales.includes('EMAIL')) {
             const resultado = await sendMoraEmail(
               expensa.vecino.email,
               `${expensa.vecino.nombre} ${expensa.vecino.apellido}`,

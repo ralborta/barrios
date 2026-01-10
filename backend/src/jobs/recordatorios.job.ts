@@ -18,19 +18,24 @@ interface ConfiguracionRecordatorio {
 
 /**
  * Envía recordatorios de vencimiento
+ * Si no se proporciona config, usa la configuración del período
  */
 export async function enviarRecordatoriosVencimiento(
-  config: ConfiguracionRecordatorio = {
+  config?: ConfiguracionRecordatorio
+): Promise<{ enviados: number; errores: number }> {
+  // Si no hay config, usar valores por defecto
+  const defaultConfig: ConfiguracionRecordatorio = {
     diasAntes: 3,
     frecuencia: 1,
     canales: ['WHATSAPP'],
-  }
-): Promise<{ enviados: number; errores: number }> {
+  };
+  
+  const finalConfig = config || defaultConfig;
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
   
   const fechaLimite = new Date(hoy);
-  fechaLimite.setDate(fechaLimite.getDate() + config.diasAntes);
+  fechaLimite.setDate(fechaLimite.getDate() + finalConfig.diasAntes);
   
   // Buscar expensas que vencen en los próximos días
   const expensas = await prisma.expensa.findMany({
@@ -45,10 +50,14 @@ export async function enviarRecordatoriosVencimiento(
         { fechaUltimoSeguimiento: null },
         {
           fechaUltimoSeguimiento: {
-            lte: new Date(hoy.getTime() - config.frecuencia * 24 * 60 * 60 * 1000),
+            lte: new Date(hoy.getTime() - finalConfig.frecuencia * 24 * 60 * 60 * 1000),
           },
         },
       ],
+      // Solo expensas de períodos con recordatorios habilitados
+      periodo: {
+        habilitarRecordatorios: true,
+      },
     },
     include: {
       vecino: {
@@ -72,13 +81,19 @@ export async function enviarRecordatoriosVencimiento(
       (expensa.fechaVencimiento.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24)
     );
     
-    if (diasRestantes > config.diasAntes) {
+    // Usar configuración del período si está disponible
+    const periodoConfig = {
+      diasAntes: expensa.periodo.diasRecordatorioAntes || finalConfig.diasAntes,
+      canales: expensa.periodo.canalesRecordatorio?.split(',') as ('WHATSAPP' | 'EMAIL')[] || finalConfig.canales,
+    };
+    
+    if (diasRestantes > periodoConfig.diasAntes) {
       continue; // Aún no es momento de enviar
     }
     
     try {
       // Enviar por WhatsApp
-      if (config.canales.includes('WHATSAPP') && expensa.vecino.telefono) {
+      if (periodoConfig.canales.includes('WHATSAPP') && expensa.vecino.telefono) {
         const resultado = await sendRecordatorioWhatsApp(
           expensa.vecino.telefono,
           `${expensa.vecino.nombre} ${expensa.vecino.apellido}`,
@@ -104,7 +119,7 @@ export async function enviarRecordatoriosVencimiento(
       }
       
       // Enviar por Email
-      if (config.canales.includes('EMAIL')) {
+      if (periodoConfig.canales.includes('EMAIL')) {
         const resultado = await sendRecordatorioEmail(
           expensa.vecino.email,
           `${expensa.vecino.nombre} ${expensa.vecino.apellido}`,
@@ -135,7 +150,7 @@ export async function enviarRecordatoriosVencimiento(
         where: { id: expensa.id },
         data: {
           fechaUltimoSeguimiento: new Date(),
-          proximoSeguimiento: new Date(hoy.getTime() + config.frecuencia * 24 * 60 * 60 * 1000),
+          proximoSeguimiento: new Date(hoy.getTime() + finalConfig.frecuencia * 24 * 60 * 60 * 1000),
           contadorSeguimientos: {
             increment: 1,
           },
