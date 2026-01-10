@@ -130,6 +130,20 @@ async function start() {
   });
 
   try {
+    // Handler explícito para OPTIONS (CORS preflight) - DEBE estar ANTES de todo
+    // Esto asegura que las peticiones OPTIONS siempre respondan, incluso si hay errores
+    fastify.addHook('onRequest', async (request, reply) => {
+      if (request.method === 'OPTIONS') {
+        const origin = request.headers.origin || '*';
+        reply.header('Access-Control-Allow-Origin', origin);
+        reply.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD');
+        reply.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, X-Requested-With, X-Webhook-Secret');
+        reply.header('Access-Control-Allow-Credentials', 'true');
+        reply.header('Access-Control-Max-Age', '86400');
+        return reply.status(204).send();
+      }
+    });
+
     // IMPORTANTE: Registrar CORS PRIMERO para que siempre esté disponible
     // incluso si la conexión a la DB falla
     await fastify.register(cors, {
