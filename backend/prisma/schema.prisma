@@ -100,6 +100,11 @@ model Expensa {
   // Mes de mora (null si no está en mora)
   mesMora Int?
 
+  // Boleta/Factura asociada
+  boletaUrl           String? // URL del archivo de boleta almacenado
+  boletaNombreArchivo String? // Nombre original del archivo
+  boletaTipoArchivo   String? // Tipo MIME (application/pdf, image/jpeg, etc.)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

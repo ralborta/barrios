@@ -195,6 +195,22 @@ export const expensasApi = {
   update: (id: string, data: any) => api.put(`/api/expensas/${id}`, data),
   delete: (id: string) => api.delete(`/api/expensas/${id}`),
   bulkCreate: (data: any) => api.post('/api/expensas/bulk', data),
+  // Boletas
+  uploadBoleta: (expensaId: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post(`/api/expensas/${expensaId}/boleta`, formData);
+  },
+  downloadBoleta: (expensaId: string) => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    return fetch(`${API_URL}/api/expensas/${expensaId}/boleta`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+  },
+  deleteBoleta: (expensaId: string) => api.delete(`/api/expensas/${expensaId}/boleta`),
 };
 
 // Comprobantes endpoints

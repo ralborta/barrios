@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { expensasApi, periodosApi, vecinosApi } from "@/lib/api"
 import { format } from "date-fns"
+import { FileText, Download, Upload, Trash2 } from "lucide-react"
 
 const expensaSchema = z.object({
   periodoId: z.string().min(1, "El período es requerido"),
@@ -49,6 +50,9 @@ export function FormExpensa({ open, onOpenChange, expensaId, periodoId, onSucces
   const [loading, setLoading] = React.useState(false)
   const [periodos, setPeriodos] = React.useState<{ id: string; mes: number; anio: number; country: { name: string } }[]>([])
   const [vecinos, setVecinos] = React.useState<{ id: string; nombre: string; apellido: string }[]>([])
+  const [boleta, setBoleta] = React.useState<{ url: string | null; nombreArchivo: string | null } | null>(null)
+  const [uploadFile, setUploadFile] = React.useState<File | null>(null)
+  const [uploadingBoleta, setUploadingBoleta] = React.useState(false)
 
   const {
     register,
@@ -114,6 +118,15 @@ export function FormExpensa({ open, onOpenChange, expensaId, periodoId, onSucces
           estado: expensa.estado || "PENDIENTE",
           fechaVencimiento: format(new Date(expensa.fechaVencimiento), "yyyy-MM-dd"),
         })
+        // Cargar información de boleta si existe
+        if (expensa.boletaUrl) {
+          setBoleta({
+            url: expensa.boletaUrl,
+            nombreArchivo: expensa.boletaNombreArchivo || null,
+          })
+        } else {
+          setBoleta(null)
+        }
       }
     }
     setLoading(false)
@@ -256,6 +269,110 @@ export function FormExpensa({ open, onOpenChange, expensaId, periodoId, onSucces
               </SelectContent>
             </Select>
           </div>
+
+          {/* Sección de Boleta */}
+          {expensaId && (
+            <div className="space-y-2 border-t pt-4">
+              <Label>Boleta</Label>
+              {boleta?.url ? (
+                <div className="flex items-center justify-between p-3 border rounded-md bg-muted/50">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">{boleta.nombreArchivo || "boleta.pdf"}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        if (!expensaId) return
+                        try {
+                          const response = await expensasApi.downloadBoleta(expensaId)
+                          if (!response.ok) throw new Error("Error al descargar")
+                          const blob = await response.blob()
+                          const url = window.URL.createObjectURL(blob)
+                          const a = document.createElement("a")
+                          a.href = url
+                          a.download = boleta.nombreArchivo || "boleta.pdf"
+                          document.body.appendChild(a)
+                          a.click()
+                          window.URL.revokeObjectURL(url)
+                          document.body.removeChild(a)
+                        } catch (error) {
+                          alert("Error al descargar boleta")
+                        }
+                      }}
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        if (!confirm("¿Estás seguro de eliminar esta boleta?")) return
+                        if (!expensaId) return
+                        try {
+                          const response = await expensasApi.deleteBoleta(expensaId)
+                          if (response.success) {
+                            setBoleta(null)
+                            alert("Boleta eliminada correctamente")
+                          } else {
+                            alert(response.error || "Error al eliminar boleta")
+                          }
+                        } catch (error) {
+                          alert("Error al eliminar boleta")
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                    disabled={loading || uploadingBoleta}
+                  />
+                  {uploadFile && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        if (!uploadFile || !expensaId) return
+                        setUploadingBoleta(true)
+                        try {
+                          const response = await expensasApi.uploadBoleta(expensaId, uploadFile)
+                          if (response.success) {
+                            setBoleta({
+                              url: (response.data as any)?.boletaUrl || null,
+                              nombreArchivo: (response.data as any)?.boletaNombreArchivo || null,
+                            })
+                            setUploadFile(null)
+                            alert("Boleta subida correctamente")
+                          } else {
+                            alert(response.error || "Error al subir boleta")
+                          }
+                        } catch (error) {
+                          alert("Error al subir boleta")
+                        } finally {
+                          setUploadingBoleta(false)
+                        }
+                      }}
+                      disabled={uploadingBoleta}
+                    >
+                      {uploadingBoleta ? "Subiendo..." : <><Upload className="h-4 w-4 mr-2" />Subir Boleta</>}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           <DialogFooter>
             <Button

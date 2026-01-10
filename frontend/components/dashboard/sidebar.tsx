@@ -10,7 +10,8 @@ import {
   Upload, 
   BarChart3,
   Check,
-  MessageSquare
+  MessageSquare,
+  Receipt
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -26,6 +27,7 @@ import {
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Expensas", href: "/expensas", icon: Building2 },
+  { name: "Boletas", href: "/boletas", icon: Receipt },
   { name: "Vecinos", href: "/vecinos", icon: Users },
   { name: "Comprobantes", href: "/comprobantes", icon: FileText },
   { name: "Mensajes", href: "/mensajes", icon: MessageSquare },

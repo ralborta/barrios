@@ -1,6 +1,11 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
+import path from 'path';
+import fs from 'fs/promises';
+import { createWriteStream } from 'fs';
+import { randomBytes } from 'crypto';
+import { pipeline } from 'stream/promises';
 
 const prisma = new PrismaClient();
 
@@ -287,6 +292,172 @@ export async function expensasRoutes(fastify: FastifyInstance) {
       }
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Error al crear expensas' });
+    }
+  });
+
+  // Subir boleta para una expensa
+  fastify.post('/api/expensas/:id/boleta', {
+    preHandler: [fastify.authenticate],
+  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+    try {
+      const { id } = request.params;
+
+      // Verificar que la expensa existe
+      const expensa = await prisma.expensa.findUnique({
+        where: { id },
+      });
+
+      if (!expensa) {
+        return reply.status(404).send({ error: 'Expensa no encontrada' });
+      }
+
+      const data = await request.file();
+      
+      if (!data) {
+        return reply.status(400).send({ error: 'No se proporcionó ningún archivo' });
+      }
+
+      // Crear directorio de uploads si no existe
+      const uploadsDir = process.env.STORAGE_PATH || './uploads';
+      await fs.mkdir(uploadsDir, { recursive: true });
+
+      // Generar nombre único para el archivo
+      const fileExtension = path.extname(data.filename || '');
+      const fileName = `boleta_${id}_${randomBytes(8).toString('hex')}${fileExtension}`;
+      const filePath = path.join(uploadsDir, fileName);
+
+      // Guardar archivo
+      const writeStream = createWriteStream(filePath);
+      await pipeline(data.file, writeStream);
+
+      // Actualizar expensa con la boleta
+      const expensaActualizada = await prisma.expensa.update({
+        where: { id },
+        data: {
+          boletaUrl: `/uploads/${fileName}`,
+          boletaNombreArchivo: data.filename || fileName,
+          boletaTipoArchivo: data.mimetype || 'application/octet-stream',
+        },
+        include: {
+          vecino: {
+            select: {
+              id: true,
+              nombre: true,
+              apellido: true,
+            },
+          },
+          periodo: {
+            include: {
+              country: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      return {
+        success: true,
+        data: expensaActualizada,
+      };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Error al subir boleta' });
+    }
+  });
+
+  // Descargar boleta de una expensa
+  fastify.get('/api/expensas/:id/boleta', {
+    preHandler: [fastify.authenticate],
+  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+    try {
+      const { id } = request.params;
+
+      const expensa = await prisma.expensa.findUnique({
+        where: { id },
+        select: {
+          boletaUrl: true,
+          boletaNombreArchivo: true,
+          boletaTipoArchivo: true,
+        },
+      });
+
+      if (!expensa || !expensa.boletaUrl) {
+        return reply.status(404).send({ error: 'Boleta no encontrada' });
+      }
+
+      const uploadsDir = process.env.STORAGE_PATH || './uploads';
+      const filePath = path.join(uploadsDir, path.basename(expensa.boletaUrl));
+
+      // Verificar que el archivo existe
+      try {
+        await fs.access(filePath);
+      } catch {
+        return reply.status(404).send({ error: 'Archivo de boleta no encontrado en el servidor' });
+      }
+
+      // Leer archivo
+      const fileBuffer = await fs.readFile(filePath);
+
+      // Enviar archivo
+      reply.header('Content-Type', expensa.boletaTipoArchivo || 'application/octet-stream');
+      reply.header('Content-Disposition', `attachment; filename="${expensa.boletaNombreArchivo || 'boleta.pdf'}"`);
+      return reply.send(fileBuffer);
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Error al descargar boleta' });
+    }
+  });
+
+  // Eliminar boleta de una expensa
+  fastify.delete('/api/expensas/:id/boleta', {
+    preHandler: [fastify.authenticate],
+  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+    try {
+      const { id } = request.params;
+
+      const expensa = await prisma.expensa.findUnique({
+        where: { id },
+        select: {
+          boletaUrl: true,
+        },
+      });
+
+      if (!expensa) {
+        return reply.status(404).send({ error: 'Expensa no encontrada' });
+      }
+
+      // Eliminar archivo físico si existe
+      if (expensa.boletaUrl) {
+        const uploadsDir = process.env.STORAGE_PATH || './uploads';
+        const filePath = path.join(uploadsDir, path.basename(expensa.boletaUrl));
+        try {
+          await fs.unlink(filePath);
+        } catch (error) {
+          // Si el archivo no existe, continuar
+          fastify.log.warn(`No se pudo eliminar el archivo ${filePath}:`, error);
+        }
+      }
+
+      // Actualizar expensa para eliminar referencias a la boleta
+      await prisma.expensa.update({
+        where: { id },
+        data: {
+          boletaUrl: null,
+          boletaNombreArchivo: null,
+          boletaTipoArchivo: null,
+        },
+      });
+
+      return {
+        success: true,
+        message: 'Boleta eliminada correctamente',
+      };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Error al eliminar boleta' });
     }
   });
 }
