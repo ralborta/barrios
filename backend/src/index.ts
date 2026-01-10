@@ -24,11 +24,27 @@ await fastify.register(cors, {
       'http://localhost:3001',
     ].filter(Boolean);
     
-    if (!origin || allowedOrigins.includes(origin)) {
+    // Permitir peticiones sin origin (como desde Postman o curl)
+    if (!origin) {
       cb(null, true);
-    } else {
-      cb(new Error('Not allowed by CORS'), false);
+      return;
     }
+    
+    // Permitir si está en la lista de orígenes permitidos
+    if (allowedOrigins.includes(origin)) {
+      cb(null, true);
+      return;
+    }
+    
+    // Por ahora, permitir todos los orígenes en desarrollo
+    // En producción, esto debería ser más restrictivo
+    if (process.env.NODE_ENV !== 'production') {
+      cb(null, true);
+      return;
+    }
+    
+    // En producción, rechazar si no está en la lista
+    cb(new Error('Not allowed by CORS'), false);
   },
   credentials: true,
 });
