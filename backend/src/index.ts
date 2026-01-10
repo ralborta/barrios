@@ -125,6 +125,37 @@ async function start() {
   });
 
   try {
+    // IMPORTANTE: Registrar CORS PRIMERO para que siempre esté disponible
+    // incluso si la conexión a la DB falla
+    await fastify.register(cors, {
+      origin: (origin, cb) => {
+        // Permitir requests sin origin (mobile apps, Postman, etc.)
+        if (!origin) {
+          return cb(null, true);
+        }
+        
+        // Si hay FRONTEND_URL configurado, permitir solo ese + localhost
+        if (process.env.FRONTEND_URL) {
+          const allowedOrigins = [
+            process.env.FRONTEND_URL,
+            'http://localhost:3000',
+            'http://localhost:3001',
+            // Permitir cualquier subdominio de Vercel
+            ...(origin.includes('.vercel.app') ? [origin] : []),
+          ];
+          if (allowedOrigins.includes(origin)) {
+            return cb(null, true);
+          }
+        }
+        
+        // Si no hay FRONTEND_URL, permitir todos los orígenes (desarrollo)
+        cb(null, true);
+      },
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
+    });
+
     // Validar variables de entorno críticas ANTES de continuar
     if (!process.env.DATABASE_URL) {
       throw new Error('❌ DATABASE_URL environment variable is required but not found');
@@ -190,14 +221,6 @@ async function start() {
 
     // Registrar Prisma como decorator para que esté disponible en todas las rutas
     fastify.decorate('prisma', prisma);
-
-    // Plugins - CORS
-    await fastify.register(cors, {
-      origin: true,
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-    });
 
     await fastify.register(jwt, {
       secret: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
