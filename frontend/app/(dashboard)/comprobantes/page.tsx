@@ -104,8 +104,18 @@ export default function ComprobantesPage() {
     const params = estadoFilter ? { estado: estadoFilter } : undefined
     const response = await comprobantesApi.list(params)
 
-    if (response.success && Array.isArray(response.data)) {
-      setComprobantes(response.data as ComprobanteData[])
+    if (response.success && response.data) {
+      // El backend devuelve { success: true, data: comprobantes }
+      // El cliente API lo envuelve, así que response.data puede ser el objeto completo
+      const comprobantesData = Array.isArray(response.data) 
+        ? response.data 
+        : (response.data as any)?.data || response.data;
+      
+      if (Array.isArray(comprobantesData)) {
+        setComprobantes(comprobantesData as ComprobanteData[])
+      } else {
+        setError("Formato de respuesta inválido")
+      }
     } else {
       setError(response.error || "Error al cargar comprobantes")
     }

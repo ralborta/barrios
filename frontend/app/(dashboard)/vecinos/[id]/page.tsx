@@ -126,8 +126,13 @@ export default function VecinoDetailPage() {
 
       // Fetch comprobantes
       const comprobantesRes = await comprobantesApi.list({ vecinoId })
-      if (comprobantesRes.success && Array.isArray(comprobantesRes.data)) {
-        setComprobantes(comprobantesRes.data as Comprobante[])
+      if (comprobantesRes.success && comprobantesRes.data) {
+        const comprobantesData = Array.isArray(comprobantesRes.data) 
+          ? comprobantesRes.data 
+          : (comprobantesRes.data as any)?.data || comprobantesRes.data;
+        if (Array.isArray(comprobantesData)) {
+          setComprobantes(comprobantesData as Comprobante[])
+        }
       }
 
       // Fetch mensajes
