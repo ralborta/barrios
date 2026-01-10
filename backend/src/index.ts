@@ -138,21 +138,22 @@ async function start() {
           return cb(null, true);
         }
         
-        // Si hay FRONTEND_URL configurado, permitir solo ese + localhost
-        if (process.env.FRONTEND_URL) {
-          const allowedOrigins = [
-            process.env.FRONTEND_URL,
-            'http://localhost:3000',
-            'http://localhost:3001',
-            // Permitir cualquier subdominio de Vercel
-            ...(origin.includes('.vercel.app') ? [origin] : []),
-          ];
-          if (allowedOrigins.includes(origin)) {
-            return cb(null, true);
-          }
+        // Permitir localhost para desarrollo
+        if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+          return cb(null, true);
         }
         
-        // Si no hay FRONTEND_URL, permitir todos los orígenes (desarrollo)
+        // Permitir cualquier subdominio de Vercel
+        if (origin.includes('.vercel.app')) {
+          return cb(null, true);
+        }
+        
+        // Si hay FRONTEND_URL configurado, permitir también ese
+        if (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL) {
+          return cb(null, true);
+        }
+        
+        // Por defecto, permitir todos los orígenes (para desarrollo y flexibilidad)
         cb(null, true);
       },
       credentials: true,
