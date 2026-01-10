@@ -133,8 +133,22 @@ async function start() {
     // Conectar Prisma al inicio (fail fast)
     // Si falta DATABASE_URL o hay error de conexión, el servicio falla al boot
     console.log('🔌 Connecting to database...');
-    await prisma.$connect();
-    console.log('✅ Prisma connected successfully');
+    console.log('📡 DATABASE_URL:', process.env.DATABASE_URL ? `${process.env.DATABASE_URL.substring(0, 20)}...` : 'NOT SET');
+    
+    try {
+      await prisma.$connect();
+      console.log('✅ Prisma connected successfully');
+    } catch (dbError: any) {
+      console.error('❌ Database connection failed:');
+      console.error('   Error:', dbError.message);
+      console.error('   Code:', dbError.code);
+      console.error('');
+      console.error('💡 Verifica en Railway:');
+      console.error('   1. El servicio Postgres está en el mismo proyecto');
+      console.error('   2. DATABASE_URL está configurado correctamente');
+      console.error('   3. El servicio Postgres está "Online"');
+      throw new Error(`Database connection failed: ${dbError.message}`);
+    }
     
     // Verificar y setup automático de la base de datos si es necesario
     const dbReady = await checkDatabaseSetup();
