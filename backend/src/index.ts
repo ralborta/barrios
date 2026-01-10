@@ -133,7 +133,20 @@ async function start() {
     // Conectar Prisma al inicio (fail fast)
     // Si falta DATABASE_URL o hay error de conexión, el servicio falla al boot
     console.log('🔌 Connecting to database...');
-    console.log('📡 DATABASE_URL:', process.env.DATABASE_URL ? `${process.env.DATABASE_URL.substring(0, 20)}...` : 'NOT SET');
+    
+    // Mostrar información del DATABASE_URL sin exponer credenciales
+    if (process.env.DATABASE_URL) {
+      try {
+        const url = new URL(process.env.DATABASE_URL);
+        console.log('📡 Database host:', url.hostname);
+        console.log('📡 Database port:', url.port || '5432 (default)');
+        console.log('📡 Database name:', url.pathname.replace('/', ''));
+      } catch {
+        console.log('📡 DATABASE_URL:', `${process.env.DATABASE_URL.substring(0, 30)}...`);
+      }
+    } else {
+      console.error('❌ DATABASE_URL is NOT SET');
+    }
     
     try {
       await prisma.$connect();
@@ -141,12 +154,29 @@ async function start() {
     } catch (dbError: any) {
       console.error('❌ Database connection failed:');
       console.error('   Error:', dbError.message);
-      console.error('   Code:', dbError.code);
+      console.error('   Code:', dbError.code || 'N/A');
+      
+      // Información adicional para debugging
+      if (process.env.DATABASE_URL) {
+        try {
+          const url = new URL(process.env.DATABASE_URL);
+          if (url.hostname === 'postgres.railway.internal') {
+            console.error('');
+            console.error('⚠️  Estás usando postgres.railway.internal (URL interna)');
+            console.error('   Esto solo funciona si:');
+            console.error('   1. El servicio Postgres está en el mismo proyecto');
+            console.error('   2. Ambos servicios están "Online"');
+            console.error('   Si no funciona, usa la URL pública del Postgres');
+          }
+        } catch {}
+      }
+      
       console.error('');
       console.error('💡 Verifica en Railway:');
       console.error('   1. El servicio Postgres está en el mismo proyecto');
       console.error('   2. DATABASE_URL está configurado correctamente');
       console.error('   3. El servicio Postgres está "Online"');
+      console.error('   4. Si usas postgres.railway.internal, prueba con la URL pública');
       throw new Error(`Database connection failed: ${dbError.message}`);
     }
     
