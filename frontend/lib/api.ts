@@ -61,13 +61,40 @@ class ApiClient {
         headers,
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Error en la petición');
+      // Leer el texto primero para poder manejar respuestas vacías o no-JSON
+      const text = await response.text();
+      
+      // Si la respuesta está vacía, devolver error
+      if (!text) {
+        return {
+          success: false,
+          error: `Error ${response.status}: ${response.statusText || 'Sin respuesta'}`,
+        };
       }
 
-      return data;
+      // Intentar parsear como JSON
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        // Si no es JSON, devolver el texto como error
+        return {
+          success: false,
+          error: `Error ${response.status}: ${text || response.statusText || 'Respuesta inválida'}`,
+        };
+      }
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.error || data.message || `Error ${response.status}: ${response.statusText}`,
+        };
+      }
+
+      return {
+        success: true,
+        data,
+      };
     } catch (error) {
       if (error instanceof Error) {
         return {
