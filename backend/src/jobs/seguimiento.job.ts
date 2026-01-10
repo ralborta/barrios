@@ -38,7 +38,7 @@ export async function enviarSeguimientos(
   const expensas = await prisma.expensa.findMany({
     where: {
       estado: {
-        in: config.estados,
+        in: config.estados as any,
       },
       contadorSeguimientos: {
         lt: config.maxSeguimientos,
@@ -136,7 +136,7 @@ export async function enviarSeguimientos(
           },
           // Si alcanzó el máximo, cambiar a EN_RECUPERO
           ...(expensa.contadorSeguimientos + 1 >= config.maxSeguimientos && {
-            estado: 'EN_RECUPERO',
+            estado: 'EN_RECUPERO' as any,
           }),
         },
       });

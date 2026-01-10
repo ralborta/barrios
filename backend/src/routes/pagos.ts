@@ -145,7 +145,7 @@ export async function pagosRoutes(fastify: FastifyInstance) {
       const resultado = await conciliarPago(
         pagoInfo,
         vecinos,
-        expensas.map(e => ({
+        expensas.map((e: any) => ({
           id: e.id,
           vecinoId: e.vecinoId,
           monto: Number(e.monto),
@@ -275,7 +275,7 @@ export async function pagosRoutes(fastify: FastifyInstance) {
         const resultados = await conciliarPagos(
           pagosInfo,
           vecinos,
-          expensas.map(e => ({
+          expensas.map((e: any) => ({
             id: e.id,
             vecinoId: e.vecinoId,
             monto: Number(e.monto),

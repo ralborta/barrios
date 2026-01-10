@@ -69,7 +69,7 @@ export async function cambiarEstadoAMora(
       await prisma.expensa.update({
         where: { id: expensa.id },
         data: {
-          estado: 'EN_MORA',
+          estado: 'EN_MORA' as any,
           mesMora: mesesMora,
         },
       });
