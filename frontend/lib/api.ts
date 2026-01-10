@@ -190,3 +190,28 @@ export const expensasApi = {
   delete: (id: string) => api.delete(`/api/expensas/${id}`),
   bulkCreate: (data: any) => api.post('/api/expensas/bulk', data),
 };
+
+// Comprobantes endpoints
+export const comprobantesApi = {
+  list: (params?: { vecinoId?: string; expensaId?: string; estado?: string }) => {
+    const query = new URLSearchParams(params as any).toString();
+    return api.get<any[]>(`/api/comprobantes${query ? `?${query}` : ''}`);
+  },
+  get: (id: string) => api.get(`/api/comprobantes/${id}`),
+  create: (data: FormData) => api.post('/api/comprobantes', data),
+  update: (id: string, data: any) => api.put(`/api/comprobantes/${id}`, data),
+  delete: (id: string) => api.delete(`/api/comprobantes/${id}`),
+};
+
+// Mensajes endpoints
+export const mensajesApi = {
+  list: (params?: { vecinoId?: string; expensaId?: string; canal?: string; tipo?: string; estado?: string }) => {
+    const query = new URLSearchParams(params as any).toString();
+    return api.get<any[]>(`/api/mensajes${query ? `?${query}` : ''}`);
+  },
+  get: (id: string) => api.get(`/api/mensajes/${id}`),
+  create: (data: any) => api.post('/api/mensajes', data),
+  update: (id: string, data: any) => api.put(`/api/mensajes/${id}`, data),
+  delete: (id: string) => api.delete(`/api/mensajes/${id}`),
+  getByExpensa: (expensaId: string) => api.get(`/api/mensajes/expensa/${expensaId}`),
+};
