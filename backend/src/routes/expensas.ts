@@ -437,7 +437,7 @@ export async function expensasRoutes(fastify: FastifyInstance) {
           await fs.unlink(filePath);
         } catch (error) {
           // Si el archivo no existe, continuar
-          fastify.log.warn(`No se pudo eliminar el archivo ${filePath}:`, error);
+          fastify.log.warn(`No se pudo eliminar el archivo ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
 
