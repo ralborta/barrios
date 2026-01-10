@@ -39,8 +39,18 @@ export function useExpensas(params?: { periodoId?: string; estado?: string; coun
     
     const response = await expensasApi.list(params)
     
-    if (response.success && response.data && Array.isArray(response.data)) {
-      setExpensas(response.data as Expensa[])
+    if (response.success && response.data) {
+      // El backend devuelve { success: true, data: expensas }
+      // El cliente API lo envuelve, así que response.data puede ser el objeto completo
+      const expensasData = Array.isArray(response.data) 
+        ? response.data 
+        : (response.data as any)?.data || response.data;
+      
+      if (Array.isArray(expensasData)) {
+        setExpensas(expensasData as Expensa[])
+      } else {
+        setError("Formato de respuesta inválido")
+      }
     } else {
       setError(response.error || "Error al cargar expensas")
     }
@@ -78,13 +88,21 @@ export function useExpensasStats() {
       expensasApi.list({ estado: "SIN_RESPUESTA" }),
     ])
 
+    const getCount = (response: any) => {
+      if (!response.success || !response.data) return 0;
+      const data = Array.isArray(response.data) 
+        ? response.data 
+        : (response.data as any)?.data || response.data;
+      return Array.isArray(data) ? data.length : 0;
+    };
+
     setStats({
-      pendientes: pendientes.success && Array.isArray(pendientes.data) ? pendientes.data.length : 0,
-      pagoInformado: informados.success && Array.isArray(informados.data) ? informados.data.length : 0,
-      confirmados: confirmados.success && Array.isArray(confirmados.data) ? confirmados.data.length : 0,
-      enMora: mora.success && Array.isArray(mora.data) ? mora.data.length : 0,
-      enRecupero: recupero.success && Array.isArray(recupero.data) ? recupero.data.length : 0,
-      sinRespuesta: sinRespuesta.success && Array.isArray(sinRespuesta.data) ? sinRespuesta.data.length : 0,
+      pendientes: getCount(pendientes),
+      pagoInformado: getCount(informados),
+      confirmados: getCount(confirmados),
+      enMora: getCount(mora),
+      enRecupero: getCount(recupero),
+      sinRespuesta: getCount(sinRespuesta),
     })
     
     setLoading(false)
