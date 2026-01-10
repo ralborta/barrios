@@ -132,37 +132,12 @@ async function start() {
   try {
     // IMPORTANTE: Registrar CORS PRIMERO para que siempre esté disponible
     // incluso si la conexión a la DB falla
+    // Simplificar CORS para permitir todos los orígenes (temporalmente para debug)
     await fastify.register(cors, {
-      origin: (origin, cb) => {
-        // Permitir requests sin origin (mobile apps, Postman, etc.)
-        if (!origin) {
-          return cb(null, true);
-        }
-        
-        // Permitir localhost para desarrollo
-        if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-          return cb(null, true);
-        }
-        
-        // Permitir cualquier subdominio de Vercel
-        if (origin.includes('.vercel.app')) {
-          return cb(null, true);
-        }
-        
-        // Si hay FRONTEND_URL configurado, permitir también ese
-        if (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL) {
-          return cb(null, true);
-        }
-        
-        // Por defecto, permitir todos los orígenes (para desarrollo y flexibilidad)
-        cb(null, true);
-      },
+      origin: true, // Permitir todos los orígenes
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
       allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With', 'X-Webhook-Secret'],
-      exposedHeaders: ['Content-Type', 'Authorization'],
-      preflight: true, // Asegurar que las peticiones OPTIONS se manejen correctamente
-      preflightContinue: false, // Responder inmediatamente a OPTIONS sin continuar
     });
 
     // Validar variables de entorno críticas ANTES de continuar
@@ -237,6 +212,11 @@ async function start() {
 
     await fastify.register(multipart);
 
+    // Handler explícito para OPTIONS (CORS preflight) - DEBE estar antes de las rutas
+    fastify.options('*', async (request, reply) => {
+      return reply.status(204).send();
+    });
+
     // Decorator para autenticación
     fastify.decorate('authenticate', async function (request: FastifyRequest, reply: FastifyReply) {
       try {
@@ -283,19 +263,6 @@ async function start() {
       
       console.log('✅ Cronjobs configurados (cada hora)');
     }
-
-    // Hook para asegurar que OPTIONS siempre responda correctamente
-    fastify.addHook('onRequest', async (request, reply) => {
-      if (request.method === 'OPTIONS') {
-        // Asegurar que OPTIONS siempre responda con headers CORS correctos
-        reply.header('Access-Control-Allow-Origin', request.headers.origin || '*');
-        reply.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD');
-        reply.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, X-Requested-With, X-Webhook-Secret');
-        reply.header('Access-Control-Allow-Credentials', 'true');
-        reply.header('Access-Control-Max-Age', '86400'); // 24 horas
-        return reply.status(204).send();
-      }
-    });
 
     // Error handler con mejor logging
     fastify.setErrorHandler((error, request, reply) => {
