@@ -296,9 +296,9 @@ export async function expensasRoutes(fastify: FastifyInstance) {
   });
 
   // Subir boleta para una expensa
-  fastify.post('/api/expensas/:id/boleta', {
+  fastify.post<{ Params: { id: string } }>('/api/expensas/:id/boleta', {
     preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  }, async (request, reply) => {
     try {
       const { id } = request.params;
 
@@ -369,9 +369,9 @@ export async function expensasRoutes(fastify: FastifyInstance) {
   });
 
   // Descargar boleta de una expensa
-  fastify.get('/api/expensas/:id/boleta', {
+  fastify.get<{ Params: { id: string } }>('/api/expensas/:id/boleta', {
     preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  }, async (request, reply) => {
     try {
       const { id } = request.params;
 
@@ -412,9 +412,9 @@ export async function expensasRoutes(fastify: FastifyInstance) {
   });
 
   // Eliminar boleta de una expensa
-  fastify.delete('/api/expensas/:id/boleta', {
+  fastify.delete<{ Params: { id: string } }>('/api/expensas/:id/boleta', {
     preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  }, async (request, reply) => {
     try {
       const { id } = request.params;
 
