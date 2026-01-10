@@ -147,15 +147,12 @@ async function start() {
     // Registrar Prisma como decorator para que esté disponible en todas las rutas
     fastify.decorate('prisma', prisma);
 
-    // Plugins - CORS configurado para permitir todos los orígenes
-    // En producción, esto debería restringirse a dominios específicos
+    // Plugins - CORS
     await fastify.register(cors, {
-      origin: true, // Permite todos los orígenes (cambiar en producción si es necesario)
+      origin: true,
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
-      exposedHeaders: ['Content-Length', 'Content-Type'],
-      preflight: true, // Asegurar que preflight requests sean manejados
+      allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
     });
 
     await fastify.register(jwt, {
