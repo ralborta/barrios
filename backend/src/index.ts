@@ -36,11 +36,29 @@ async function setupDatabase() {
   try {
     // Ejecutar prisma db push para crear las tablas
     console.log('🔧 Creating database tables...');
-    execSync('npx prisma db push --accept-data-loss', { 
-      stdio: 'inherit',
-      env: { ...process.env }
-    });
-    console.log('✅ Database tables created');
+    try {
+      execSync('pnpm prisma db push --accept-data-loss', { 
+        stdio: 'inherit',
+        env: { ...process.env },
+        cwd: process.cwd()
+      });
+      console.log('✅ Database tables created');
+    } catch (execError: any) {
+      console.error('❌ Error executing prisma db push:', execError.message);
+      // Intentar con npx como fallback
+      try {
+        console.log('🔄 Trying with npx...');
+        execSync('npx prisma db push --accept-data-loss', { 
+          stdio: 'inherit',
+          env: { ...process.env },
+          cwd: process.cwd()
+        });
+        console.log('✅ Database tables created (via npx)');
+      } catch (npxError: any) {
+        console.error('❌ Error with npx as well:', npxError.message);
+        throw new Error('Failed to create database tables. Please run "pnpm prisma db push" manually.');
+      }
+    }
     
     // Ejecutar seed para crear usuarios
     console.log('🌱 Seeding database...');
@@ -85,8 +103,15 @@ async function setupDatabase() {
     }
     
     console.log('✅ Database setup completed');
-  } catch (error) {
-    console.error('❌ Error setting up database:', error);
+  } catch (error: any) {
+    console.error('❌ Error setting up database:');
+    console.error('   Message:', error?.message || error);
+    console.error('   Stack:', error?.stack);
+    console.error('');
+    console.error('💡 If this persists, try running manually:');
+    console.error('   railway run --service backend pnpm db:setup');
+    console.error('   or');
+    console.error('   pnpm prisma db push && pnpm prisma:seed');
     throw error;
   }
 }
