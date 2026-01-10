@@ -159,7 +159,10 @@ async function start() {
       },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With', 'X-Webhook-Secret'],
+      exposedHeaders: ['Content-Type', 'Authorization'],
+      preflight: true, // Asegurar que las peticiones OPTIONS se manejen correctamente
+      preflightContinue: false, // Responder inmediatamente a OPTIONS sin continuar
     });
 
     // Validar variables de entorno críticas ANTES de continuar
@@ -281,8 +284,18 @@ async function start() {
       console.log('✅ Cronjobs configurados (cada hora)');
     }
 
-    // NOTA: No necesitamos handler explícito de OPTIONS
-    // @fastify/cors ya maneja OPTIONS automáticamente
+    // Hook para asegurar que OPTIONS siempre responda correctamente
+    fastify.addHook('onRequest', async (request, reply) => {
+      if (request.method === 'OPTIONS') {
+        // Asegurar que OPTIONS siempre responda con headers CORS correctos
+        reply.header('Access-Control-Allow-Origin', request.headers.origin || '*');
+        reply.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD');
+        reply.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, X-Requested-With, X-Webhook-Secret');
+        reply.header('Access-Control-Allow-Credentials', 'true');
+        reply.header('Access-Control-Max-Age', '86400'); // 24 horas
+        return reply.status(204).send();
+      }
+    });
 
     // Error handler con mejor logging
     fastify.setErrorHandler((error, request, reply) => {
