@@ -238,4 +238,18 @@ export const importApi = {
       },
     });
   },
+  importComprobantes: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/api/import/comprobantes', formData);
+  },
+  downloadComprobantesTemplate: () => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    return fetch(`${API_URL}/api/import/comprobantes/template`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+  },
 };
