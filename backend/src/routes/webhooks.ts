@@ -27,7 +27,8 @@ export async function webhooksRoutes(fastify: FastifyInstance) {
   fastify.post('/api/webhooks/whatsapp', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       // Verificar secret si está configurado
-      const webhookSecret = request.headers['x-webhook-secret'] || request.query?.secret;
+      const query = request.query as { secret?: string } | undefined;
+      const webhookSecret = request.headers['x-webhook-secret'] || query?.secret;
       if (process.env.WHATSAPP_WEBHOOK_SECRET && webhookSecret !== process.env.WHATSAPP_WEBHOOK_SECRET) {
         return reply.status(401).send({ error: 'Unauthorized' });
       }
@@ -37,8 +38,8 @@ export async function webhooksRoutes(fastify: FastifyInstance) {
       // Procesar webhook genérico
       const resultado = await processWhatsAppWebhook(payload);
       
-      if (!resultado.success) {
-        return reply.status(400).send({ error: 'Error procesando webhook' });
+      if (!resultado.success || !resultado.from) {
+        return reply.status(400).send({ error: 'Error procesando webhook o número de teléfono no encontrado' });
       }
 
       const { from, text, mediaUrl } = resultado;
@@ -191,7 +192,8 @@ export async function webhooksRoutes(fastify: FastifyInstance) {
   fastify.post('/api/webhooks/pagos', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       // Verificar secret si está configurado
-      const webhookSecret = request.headers['x-webhook-secret'] || request.query?.secret;
+      const query = request.query as { secret?: string } | undefined;
+      const webhookSecret = request.headers['x-webhook-secret'] || query?.secret;
       if (process.env.PAGOS_WEBHOOK_SECRET && webhookSecret !== process.env.PAGOS_WEBHOOK_SECRET) {
         return reply.status(401).send({ error: 'Unauthorized' });
       }
