@@ -132,9 +132,31 @@ async function start() {
   try {
     // IMPORTANTE: Registrar CORS PRIMERO para que siempre esté disponible
     // incluso si la conexión a la DB falla
-    // Simplificar CORS para permitir todos los orígenes (temporalmente para debug)
     await fastify.register(cors, {
-      origin: true, // Permitir todos los orígenes
+      origin: (origin, cb) => {
+        // Permitir requests sin origin (mobile apps, Postman, etc.)
+        if (!origin) {
+          return cb(null, true);
+        }
+        
+        // Permitir localhost para desarrollo
+        if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+          return cb(null, true);
+        }
+        
+        // Permitir cualquier subdominio de Vercel
+        if (origin.includes('.vercel.app')) {
+          return cb(null, true);
+        }
+        
+        // Si hay FRONTEND_URL configurado, permitir también ese
+        if (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL) {
+          return cb(null, true);
+        }
+        
+        // Por defecto, permitir todos los orígenes (para desarrollo y flexibilidad)
+        cb(null, true);
+      },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
       allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With', 'X-Webhook-Secret'],
@@ -156,12 +178,6 @@ async function start() {
         console.log('📡 Database host:', url.hostname);
         console.log('📡 Database port:', url.port || '5432 (default)');
         console.log('📡 Database name:', url.pathname.replace('/', ''));
-        
-        // Advertencia si usa URL interna
-        if (url.hostname === 'postgres.railway.internal') {
-          console.warn('⚠️  Estás usando postgres.railway.internal (URL interna)');
-          console.warn('   Si falla la conexión, usa la URL pública del Postgres');
-        }
       } catch {
         console.log('📡 DATABASE_URL:', `${process.env.DATABASE_URL.substring(0, 30)}...`);
       }
@@ -188,12 +204,6 @@ async function start() {
             console.error('   1. El servicio Postgres está en el mismo proyecto');
             console.error('   2. Ambos servicios están "Online"');
             console.error('   Si no funciona, usa la URL pública del Postgres');
-            console.error('');
-            console.error('📝 Cómo obtener la URL pública:');
-            console.error('   1. Railway Dashboard → Servicio Postgres');
-            console.error('   2. Variables → Busca DATABASE_URL o POSTGRES_URL');
-            console.error('   3. Si solo ves postgres.railway.internal, busca otra variable');
-            console.error('   4. O ve a Settings → Networking → Habilita Public Networking');
           }
         } catch {}
       }
@@ -223,11 +233,6 @@ async function start() {
     });
 
     await fastify.register(multipart);
-
-    // Handler explícito para OPTIONS (CORS preflight) - DEBE estar antes de las rutas
-    fastify.options('*', async (request, reply) => {
-      return reply.status(204).send();
-    });
 
     // Decorator para autenticación
     fastify.decorate('authenticate', async function (request: FastifyRequest, reply: FastifyReply) {
