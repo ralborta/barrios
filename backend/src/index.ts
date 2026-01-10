@@ -234,19 +234,6 @@ async function start() {
 
     await fastify.register(multipart);
 
-    // Handler explícito para OPTIONS (después de CORS para asegurar que funcione)
-    fastify.options('*', async (request, reply) => {
-      // El plugin de CORS ya debería haber agregado los headers, pero por si acaso:
-      const origin = request.headers.origin;
-      if (origin) {
-        reply.header('Access-Control-Allow-Origin', origin);
-        reply.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD');
-        reply.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, X-Requested-With, X-Webhook-Secret');
-        reply.header('Access-Control-Allow-Credentials', 'true');
-      }
-      return reply.status(204).send();
-    });
-
     // Decorator para autenticación
     fastify.decorate('authenticate', async function (request: FastifyRequest, reply: FastifyReply) {
       try {
