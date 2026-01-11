@@ -239,6 +239,17 @@ export const mensajesApi = {
 };
 
 // Import endpoints
+export const pagosApi = {
+  list: (params?: { estado?: string; vecinoId?: string; expensaId?: string; fechaDesde?: string; fechaHasta?: string }) => {
+    const query = new URLSearchParams(params as any).toString();
+    return api.get<any[]>(`/api/pagos${query ? `?${query}` : ''}`);
+  },
+  get: (id: string) => api.get(`/api/pagos/${id}`),
+  revisar: (id: string, data: { accion: 'conciliar' | 'rechazar' | 'marcar_duplicado'; expensaId?: string; observaciones?: string }) => {
+    return api.put(`/api/pagos/${id}/revisar`, data);
+  },
+};
+
 export const importApi = {
   importVecinos: (file: File) => {
     const formData = new FormData();

@@ -11,7 +11,8 @@ import {
   BarChart3,
   Check,
   MessageSquare,
-  Receipt
+  Receipt,
+  CreditCard
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -30,6 +31,7 @@ const navigation = [
   { name: "Boletas", href: "/boletas", icon: Receipt },
   { name: "Vecinos", href: "/vecinos", icon: Users },
   { name: "Comprobantes", href: "/comprobantes", icon: FileText },
+  { name: "Pagos", href: "/pagos", icon: CreditCard },
   { name: "Mensajes", href: "/mensajes", icon: MessageSquare },
   { name: "Importar CSV", href: "/importar", icon: Upload },
   { name: "Reportes", href: "/reportes", icon: BarChart3 },

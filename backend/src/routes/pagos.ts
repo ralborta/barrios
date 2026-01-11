@@ -25,6 +25,279 @@ const pagosBulkSchema = z.object({
 });
 
 export async function pagosRoutes(fastify: FastifyInstance) {
+  // Listar pagos (para gestión y revisión)
+  fastify.get('/api/pagos', {
+    preHandler: [fastify.authenticate],
+  }, async (request: FastifyRequest) => {
+    const { estado, vecinoId, expensaId, fechaDesde, fechaHasta } = request.query as {
+      estado?: string;
+      vecinoId?: string;
+      expensaId?: string;
+      fechaDesde?: string;
+      fechaHasta?: string;
+    };
+    
+    const where: any = {};
+    if (estado) where.estado = estado;
+    if (vecinoId) where.vecinoId = vecinoId;
+    if (expensaId) where.expensaId = expensaId;
+    if (fechaDesde || fechaHasta) {
+      where.fecha = {};
+      if (fechaDesde) where.fecha.gte = new Date(fechaDesde);
+      if (fechaHasta) where.fecha.lte = new Date(fechaHasta);
+    }
+
+    const pagos = await fastify.prisma.pago.findMany({
+      where,
+      include: {
+        vecino: {
+          select: {
+            id: true,
+            nombre: true,
+            apellido: true,
+            email: true,
+            telefono: true,
+          },
+        },
+        expensa: {
+          select: {
+            id: true,
+            monto: true,
+            estado: true,
+            fechaVencimiento: true,
+            periodo: {
+              select: {
+                mes: true,
+                anio: true,
+                country: {
+                  select: {
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        comprobante: {
+          select: {
+            id: true,
+            estado: true,
+            url: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return {
+      success: true,
+      data: pagos,
+    };
+  });
+
+  // Obtener pago por ID
+  fastify.get<{ Params: { id: string } }>('/api/pagos/:id', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const { id } = request.params;
+
+    const pago = await fastify.prisma.pago.findUnique({
+      where: { id },
+      include: {
+        vecino: {
+          select: {
+            id: true,
+            nombre: true,
+            apellido: true,
+            email: true,
+            telefono: true,
+          },
+        },
+        expensa: {
+          include: {
+            periodo: {
+              include: {
+                country: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        comprobante: true,
+      },
+    });
+
+    if (!pago) {
+      return reply.status(404).send({ error: 'Pago no encontrado' });
+    }
+
+    return {
+      success: true,
+      data: pago,
+    };
+  });
+
+  // Revisar/conciliar manualmente un pago
+  fastify.put<{ Params: { id: string } }>('/api/pagos/:id/revisar', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const body = z.object({
+        accion: z.enum(['conciliar', 'rechazar', 'marcar_duplicado']),
+        expensaId: z.string().optional(),
+        observaciones: z.string().optional(),
+      }).parse(request.body);
+
+      const pago = await fastify.prisma.pago.findUnique({
+        where: { id },
+      });
+
+      if (!pago) {
+        return reply.status(404).send({ error: 'Pago no encontrado' });
+      }
+
+      const usuario = (request as any).user;
+      
+      if (body.accion === 'conciliar') {
+        if (!body.expensaId) {
+          return reply.status(400).send({ error: 'expensaId es requerido para conciliar' });
+        }
+
+        const expensa = await fastify.prisma.expensa.findUnique({
+          where: { id: body.expensaId },
+          include: {
+            vecino: true,
+          },
+        });
+
+        if (!expensa) {
+          return reply.status(404).send({ error: 'Expensa no encontrada' });
+        }
+
+        // Actualizar pago
+        const pagoActualizado = await fastify.prisma.pago.update({
+          where: { id },
+          data: {
+            vecinoId: expensa.vecinoId,
+            expensaId: expensa.id,
+            estado: 'REVISADO',
+            confianza: 100,
+            coincidencia: 'MANUAL',
+            razon: `Conciliado manualmente por ${usuario.email}`,
+            revisadoPor: usuario.id,
+            fechaRevision: new Date(),
+            observaciones: body.observaciones,
+          },
+        });
+
+        // Crear o actualizar comprobante
+        let comprobante = await fastify.prisma.comprobante.findUnique({
+          where: { pagoId: id },
+        });
+
+        if (!comprobante) {
+          comprobante = await fastify.prisma.comprobante.create({
+            data: {
+              vecinoId: expensa.vecinoId,
+              expensaId: expensa.id,
+              pagoId: id,
+              url: pago.referencia || 'pago-manual',
+              tipoArchivo: 'application/json',
+              nombreArchivo: `pago-${pago.referencia || 'manual'}`,
+              estado: 'CONFIRMADO',
+              observaciones: `Pago conciliado manualmente. ${body.observaciones || ''}`,
+            },
+          });
+        } else {
+          comprobante = await fastify.prisma.comprobante.update({
+            where: { id: comprobante.id },
+            data: {
+              expensaId: expensa.id,
+              estado: 'CONFIRMADO',
+              observaciones: `Pago conciliado manualmente. ${body.observaciones || ''}`,
+            },
+          });
+        }
+
+        // Actualizar estado de expensa
+        const montoExpensa = Number(expensa.monto);
+        const montoPago = Number(pago.monto);
+        const diferencia = Math.abs(montoExpensa - montoPago);
+
+        if (diferencia < 0.01) {
+          await fastify.prisma.expensa.update({
+            where: { id: expensa.id },
+            data: {
+              estado: 'CONFIRMADO',
+            },
+          });
+        } else if (expensa.estado === 'PENDIENTE') {
+          await fastify.prisma.expensa.update({
+            where: { id: expensa.id },
+            data: {
+              estado: 'PAGO_INFORMADO',
+            },
+          });
+        }
+
+        return {
+          success: true,
+          data: {
+            pago: pagoActualizado,
+            comprobante,
+            expensa: {
+              id: expensa.id,
+              estado: diferencia < 0.01 ? 'CONFIRMADO' : expensa.estado,
+            },
+          },
+        };
+      } else if (body.accion === 'rechazar') {
+        const pagoActualizado = await fastify.prisma.pago.update({
+          where: { id },
+          data: {
+            estado: 'RECHAZADO',
+            revisadoPor: usuario.id,
+            fechaRevision: new Date(),
+            observaciones: body.observaciones || 'Pago rechazado manualmente',
+          },
+        });
+
+        return {
+          success: true,
+          data: pagoActualizado,
+        };
+      } else if (body.accion === 'marcar_duplicado') {
+        const pagoActualizado = await fastify.prisma.pago.update({
+          where: { id },
+          data: {
+            estado: 'DUPLICADO',
+            revisadoPor: usuario.id,
+            fechaRevision: new Date(),
+            observaciones: body.observaciones || 'Pago marcado como duplicado',
+          },
+        });
+
+        return {
+          success: true,
+          data: pagoActualizado,
+        };
+      }
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return reply.status(400).send({ error: 'Datos inválidos', details: error.errors });
+      }
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Error al revisar pago' });
+    }
+  });
+
   // Endpoint para recibir pagos del concentrador (futuro - API)
   fastify.post('/api/pagos', {
     preHandler: [fastify.authenticate],
