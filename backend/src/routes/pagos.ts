@@ -16,6 +16,8 @@ const pagoSchema = z.object({
   email: z.string().email().optional(),
   telefono: z.string().optional(),
   descripcion: z.string().optional(),
+  metodoPago: z.string().optional(),
+  datosAdicionales: z.record(z.any()).optional(), // JSON con datos adicionales
   expensaId: z.string().optional(), // Si ya se conoce la expensa
 });
 
