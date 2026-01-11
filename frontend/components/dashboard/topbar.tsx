@@ -33,11 +33,11 @@ export function Topbar() {
   const defaultValue = `${months[currentMonth]} ${currentYearValue}`
 
   return (
-    <div className="flex h-16 items-center justify-between border-b bg-white px-6">
+    <div className="flex h-16 items-center justify-between border-b bg-gradient-to-r from-white to-slate-50 px-6 shadow-sm">
       {/* Period Selector */}
       <div className="flex items-center gap-2">
-        <Calendar className="h-4 w-4 text-gray-500" />
-        <span className="text-sm text-gray-600">Periodo:</span>
+        <Calendar className="h-4 w-4 text-blue-500" />
+        <span className="text-sm text-gray-700 font-medium">Periodo:</span>
         <Select defaultValue={defaultValue}>
           <SelectTrigger className="w-[180px]">
             <SelectValue />
