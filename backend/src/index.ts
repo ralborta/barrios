@@ -164,33 +164,11 @@ async function start() {
     // IMPORTANTE: Registrar CORS PRIMERO para que siempre esté disponible
     // incluso si la conexión a la DB falla
     await fastify.register(cors, {
-      origin: (origin, cb) => {
-        // Permitir requests sin origin (mobile apps, Postman, etc.)
-        if (!origin) {
-          return cb(null, true);
-        }
-        
-        // Permitir localhost para desarrollo
-        if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-          return cb(null, true);
-        }
-        
-        // Permitir cualquier subdominio de Vercel
-        if (origin.includes('.vercel.app')) {
-          return cb(null, true);
-        }
-        
-        // Si hay FRONTEND_URL configurado, permitir también ese
-        if (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL) {
-          return cb(null, true);
-        }
-        
-        // Por defecto, permitir todos los orígenes (para desarrollo y flexibilidad)
-        cb(null, true);
-      },
+      origin: true, // Permitir todos los orígenes (más simple y funciona mejor)
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
       allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With', 'X-Webhook-Secret'],
+      preflight: true, // Habilitar preflight explícitamente
     });
 
     // Validar variables de entorno críticas ANTES de continuar
