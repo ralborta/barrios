@@ -32,29 +32,42 @@ export async function templatesRoutes(fastify: FastifyInstance) {
   // Listar templates
   fastify.get('/api/templates', {
     preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest) => {
-    const { tipo, canal, activo } = request.query as {
-      tipo?: string;
-      canal?: string;
-      activo?: string;
-    };
-    
-    const where: any = {};
-    if (tipo) where.tipo = tipo;
-    if (canal) where.canal = canal;
-    if (activo !== undefined) where.activo = activo === 'true';
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { tipo, canal, activo } = request.query as {
+        tipo?: string;
+        canal?: string;
+        activo?: string;
+      };
+      
+      const where: any = {};
+      if (tipo) where.tipo = tipo;
+      if (canal) where.canal = canal;
+      if (activo !== undefined) where.activo = activo === 'true';
 
-    const templates = await fastify.prisma.templateMensaje.findMany({
-      where,
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+      const templates = await fastify.prisma.templateMensaje.findMany({
+        where,
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
 
-    return {
-      success: true,
-      data: templates,
-    };
+      return {
+        success: true,
+        data: templates,
+      };
+    } catch (error: any) {
+      // Si la tabla no existe, retornar array vacío en lugar de error
+      if (error?.message?.includes('does not exist') || error?.code === '42P01' || error?.message?.includes('Can\'t reach database')) {
+        fastify.log.warn('Tabla template_mensajes no existe aún, retornando array vacío');
+        return {
+          success: true,
+          data: [],
+        };
+      }
+      fastify.log.error('Error listando templates:', error);
+      return reply.status(500).send({ error: 'Error al listar templates' });
+    }
   });
 
   // Obtener template por ID
