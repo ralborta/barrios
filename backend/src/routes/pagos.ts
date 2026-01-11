@@ -85,16 +85,46 @@ export async function pagosRoutes(fastify: FastifyInstance) {
         const montoPago = Number(data.monto);
         const diferencia = Math.abs(montoExpensa - montoPago);
         
+        // Crear registro de pago
+        const pago = await fastify.prisma.pago.create({
+          data: {
+            monto: data.monto,
+            fecha: data.fecha ? new Date(data.fecha) : new Date(),
+            referencia: data.referencia,
+            nombre: data.nombre,
+            email: data.email,
+            telefono: data.telefono,
+            descripcion: data.descripcion,
+            metodoPago: data.metodoPago,
+            datosAdicionales: data.datosAdicionales ? JSON.stringify(data.datosAdicionales) : null,
+            vecinoId: expensa.vecinoId,
+            expensaId: expensa.id,
+            estado: diferencia < 0.01 ? 'CONCILIADO' : 'REVISADO',
+            confianza: diferencia < 0.01 ? 100 : 80,
+            coincidencia: diferencia < 0.01 ? 'EXACTA' : 'APROXIMADA',
+            razon: `Pago recibido por API. Diferencia: $${diferencia.toFixed(2)}`,
+          },
+        });
+        
         // Crear comprobante
         const comprobante = await fastify.prisma.comprobante.create({
           data: {
             vecinoId: expensa.vecinoId,
             expensaId: expensa.id,
+            pagoId: pago.id,
             url: data.referencia || 'api-pago',
             tipoArchivo: 'application/json',
             nombreArchivo: `pago-${data.referencia || 'api'}`,
             estado: diferencia < 0.01 ? 'CONFIRMADO' : 'NUEVO',
             observaciones: `Pago recibido por API. Monto: $${montoPago.toFixed(2)}, Diferencia: $${diferencia.toFixed(2)}`,
+          },
+        });
+        
+        // Actualizar pago con comprobante
+        await fastify.prisma.pago.update({
+          where: { id: pago.id },
+          data: {
+            comprobanteId: comprobante.id,
           },
         });
         
@@ -131,6 +161,22 @@ export async function pagosRoutes(fastify: FastifyInstance) {
         };
       }
       
+      // Crear registro de pago primero
+      const pago = await fastify.prisma.pago.create({
+        data: {
+          monto: data.monto,
+          fecha: data.fecha ? new Date(data.fecha) : new Date(),
+          referencia: data.referencia,
+          nombre: data.nombre,
+          email: data.email,
+          telefono: data.telefono,
+          descripcion: data.descripcion,
+          metodoPago: data.metodoPago,
+          datosAdicionales: data.datosAdicionales ? JSON.stringify(data.datosAdicionales) : null,
+          estado: 'PENDIENTE',
+        },
+      });
+      
       // Conciliación automática
       const pagoInfo = {
         monto: data.monto,
@@ -160,23 +206,57 @@ export async function pagosRoutes(fastify: FastifyInstance) {
       );
       
       if (!resultado || resultado.confianza < 70) {
+        // Actualizar pago como pendiente de revisión
+        await fastify.prisma.pago.update({
+          where: { id: pago.id },
+          data: {
+            estado: 'PENDIENTE',
+            razon: resultado 
+              ? `Confianza insuficiente (${resultado.confianza}%)`
+              : 'No se pudo identificar vecino o expensa',
+          },
+        });
+        
         return reply.status(400).send({
           error: 'No se pudo conciliar el pago automáticamente',
           requiereRevision: true,
+          pagoId: pago.id,
           pago: pagoInfo,
         });
       }
+      
+      // Actualizar pago con resultado de conciliación
+      await fastify.prisma.pago.update({
+        where: { id: pago.id },
+        data: {
+          vecinoId: resultado.vecinoId,
+          expensaId: resultado.expensaId,
+          estado: 'CONCILIADO',
+          confianza: resultado.confianza,
+          coincidencia: resultado.coincidencia,
+          razon: resultado.razon,
+        },
+      });
       
       // Crear comprobante
       const comprobante = await fastify.prisma.comprobante.create({
         data: {
           vecinoId: resultado.vecinoId,
           expensaId: resultado.expensaId,
+          pagoId: pago.id,
           url: data.referencia || 'api-pago',
           tipoArchivo: 'application/json',
           nombreArchivo: `pago-${data.referencia || 'api'}`,
           estado: resultado.coincidencia === 'exacta' ? 'CONFIRMADO' : 'NUEVO',
           observaciones: `Pago conciliado automáticamente. ${resultado.razon}. Confianza: ${resultado.confianza}%`,
+        },
+      });
+      
+      // Actualizar pago con comprobante
+      await fastify.prisma.pago.update({
+        where: { id: pago.id },
+        data: {
+          comprobanteId: comprobante.id,
         },
       });
       
@@ -260,6 +340,26 @@ export async function pagosRoutes(fastify: FastifyInstance) {
         },
       });
       
+      // Crear registros de pago primero
+      const pagosCreados = await Promise.all(
+        data.pagos.map(p => 
+          fastify.prisma.pago.create({
+            data: {
+              monto: p.monto,
+              fecha: p.fecha ? new Date(p.fecha) : new Date(),
+              referencia: p.referencia,
+              nombre: p.nombre,
+              email: p.email,
+              telefono: p.telefono,
+              descripcion: p.descripcion,
+              metodoPago: p.metodoPago,
+              datosAdicionales: p.datosAdicionales ? JSON.stringify(p.datosAdicionales) : null,
+              estado: 'PENDIENTE',
+            },
+          })
+        )
+      );
+      
       if (data.autoConciliar) {
         // Conciliación automática
         const pagosInfo = data.pagos.map(p => ({
@@ -289,18 +389,52 @@ export async function pagosRoutes(fastify: FastifyInstance) {
           }))
         );
         
-        // Crear comprobantes para los exitosos
+        // Crear comprobantes y actualizar pagos para los exitosos
         const comprobantesCreados = [];
+        
+        // Mapear pagos creados por referencia para encontrar el correcto
+        const pagosPorReferencia = new Map(pagosCreados.map(p => [p.referencia || '', p]));
+        
         for (const resultado of resultados.exitosos) {
+          // Encontrar el pago correspondiente por referencia
+          const pagoCreado = pagosPorReferencia.get(resultado.pago.referencia || '') || pagosCreados.find(p => 
+            Math.abs(Number(p.monto) - resultado.montoPago) < 0.01 &&
+            (!resultado.pago.referencia || p.referencia === resultado.pago.referencia)
+          );
+          
+          if (!pagoCreado) continue;
+          
+          // Actualizar pago con resultado de conciliación
+          await fastify.prisma.pago.update({
+            where: { id: pagoCreado.id },
+            data: {
+              vecinoId: resultado.vecinoId,
+              expensaId: resultado.expensaId,
+              estado: 'CONCILIADO',
+              confianza: resultado.confianza,
+              coincidencia: resultado.coincidencia,
+              razon: resultado.razon,
+            },
+          });
+          
           const comprobante = await fastify.prisma.comprobante.create({
             data: {
               vecinoId: resultado.vecinoId,
               expensaId: resultado.expensaId,
+              pagoId: pagoCreado.id,
               url: resultado.pago.referencia || 'bulk-pago',
               tipoArchivo: 'application/json',
               nombreArchivo: `pago-${resultado.pago.referencia || 'bulk'}`,
               estado: resultado.coincidencia === 'exacta' ? 'CONFIRMADO' : 'NUEVO',
               observaciones: `Pago conciliado automáticamente. ${resultado.razon}. Confianza: ${resultado.confianza}%`,
+            },
+          });
+          
+          // Actualizar pago con comprobante
+          await fastify.prisma.pago.update({
+            where: { id: pagoCreado.id },
+            data: {
+              comprobanteId: comprobante.id,
             },
           });
           
@@ -314,7 +448,28 @@ export async function pagosRoutes(fastify: FastifyInstance) {
             });
           }
           
-          comprobantesCreados.push({ comprobante, conciliacion: resultado });
+          comprobantesCreados.push({ comprobante, conciliacion: resultado, pago: pagoCreado });
+        }
+        
+        // Actualizar pagos pendientes
+        const pagosConciliadosIds = new Set(comprobantesCreados.map(c => c.pago.id));
+        for (const pendiente of resultados.pendientes) {
+          // Encontrar el pago correspondiente
+          const pagoPendiente = pagosCreados.find(p => 
+            !pagosConciliadosIds.has(p.id) &&
+            Math.abs(Number(p.monto) - pendiente.pago.monto) < 0.01 &&
+            (!pendiente.pago.referencia || p.referencia === pendiente.pago.referencia)
+          );
+          
+          if (pagoPendiente) {
+            await fastify.prisma.pago.update({
+              where: { id: pagoPendiente.id },
+              data: {
+                estado: 'PENDIENTE',
+                razon: pendiente.razon,
+              },
+            });
+          }
         }
         
         return {
@@ -360,14 +515,41 @@ export async function pagosRoutes(fastify: FastifyInstance) {
             continue; // Saltar si no se encuentra vecino
           }
           
+          // Crear registro de pago
+          const pagoCreado = await fastify.prisma.pago.create({
+            data: {
+              monto: pago.monto,
+              fecha: pago.fecha ? new Date(pago.fecha) : new Date(),
+              referencia: pago.referencia,
+              nombre: pago.nombre,
+              email: pago.email,
+              telefono: pago.telefono,
+              descripcion: pago.descripcion,
+              metodoPago: pago.metodoPago,
+              datosAdicionales: pago.datosAdicionales ? JSON.stringify(pago.datosAdicionales) : null,
+              vecinoId: vecino.id,
+              estado: 'PENDIENTE',
+              razon: 'Pago cargado sin conciliación automática',
+            },
+          });
+          
           const comprobante = await fastify.prisma.comprobante.create({
             data: {
               vecinoId: vecino.id,
+              pagoId: pagoCreado.id,
               url: pago.referencia || 'bulk-pago',
               tipoArchivo: 'application/json',
               nombreArchivo: `pago-${pago.referencia || 'bulk'}`,
               estado: 'NUEVO',
               observaciones: `Pago cargado manualmente. Monto: $${pago.monto.toFixed(2)}`,
+            },
+          });
+          
+          // Actualizar pago con comprobante
+          await fastify.prisma.pago.update({
+            where: { id: pagoCreado.id },
+            data: {
+              comprobanteId: comprobante.id,
             },
           });
           

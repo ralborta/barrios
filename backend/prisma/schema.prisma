@@ -43,6 +43,7 @@ model Vecino {
   expensas     Expensa[]
   comprobantes Comprobante[]
   mensajes     Mensaje[]
+  pagos        Pago[]
 
   @@map("vecinos")
 }
@@ -110,6 +111,7 @@ model Expensa {
 
   mensajes     Mensaje[]
   comprobantes Comprobante[]
+  pagos        Pago[]
 
   @@unique([periodoId, vecinoId])
   @@map("expensas")
@@ -188,6 +190,9 @@ model Comprobante {
   estado        EstadoComprobante @default(NUEVO)
   observaciones String?
 
+  // Relación con Pago (si viene del concentrador)
+  pago Pago?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -199,6 +204,61 @@ enum EstadoComprobante {
   REVISADO
   CONFIRMADO
   RECHAZADO
+}
+
+// Modelo de Pago (pagos del concentrador para conciliación)
+model Pago {
+  id String @id @default(cuid())
+
+  // Datos del pago del concentrador
+  monto            Decimal  @db.Decimal(10, 2)
+  fecha            DateTime
+  referencia       String? // Referencia del pago del concentrador
+  nombre           String? // Nombre del pagador
+  email            String? // Email del pagador
+  telefono         String? // Teléfono del pagador
+  descripcion      String? // Descripción del pago
+  metodoPago       String? // Método de pago (TARJETA, TRANSFERENCIA, etc.)
+  datosAdicionales String? // JSON con datos adicionales del concentrador
+
+  // Conciliación
+  vecinoId  String? // Vecino identificado (puede ser null si no se identificó)
+  vecino    Vecino?  @relation(fields: [vecinoId], references: [id], onDelete: SetNull)
+  expensaId String? // Expensa conciliada (puede ser null si no se concilió)
+  expensa   Expensa? @relation(fields: [expensaId], references: [id], onDelete: SetNull)
+
+  estado       EstadoPago        @default(PENDIENTE)
+  confianza    Int? // Confianza de la conciliación automática (0-100)
+  coincidencia TipoCoincidencia? // Tipo de coincidencia encontrada
+  razon        String? // Razón de la conciliación o por qué no se concilió
+
+  // Revisión manual
+  revisadoPor   String? // ID del usuario que revisó manualmente
+  fechaRevision DateTime?
+  observaciones String?
+
+  // Comprobante asociado (si se creó)
+  comprobanteId String?      @unique
+  comprobante   Comprobante? @relation(fields: [comprobanteId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("pagos")
+}
+
+enum EstadoPago {
+  PENDIENTE // Pendiente de conciliación
+  CONCILIADO // Conciliado automáticamente
+  REVISADO // Revisado manualmente y confirmado
+  RECHAZADO // Rechazado (no corresponde a ninguna expensa)
+  DUPLICADO // Pago duplicado
+}
+
+enum TipoCoincidencia {
+  EXACTA // Coincidencia exacta (monto, vecino, expensa)
+  APROXIMADA // Coincidencia aproximada (monto similar)
+  MANUAL // Requiere revisión manual
 }
 
 // Modelo de Usuario (administradores del sistema)
