@@ -20,11 +20,36 @@ import cron from 'node-cron';
 
 const prisma = new PrismaClient();
 
-// Función para verificar si las tablas existen
+// Función para verificar si las tablas y campos necesarios existen
 async function checkDatabaseSetup() {
   try {
-    // Intentar consultar la tabla usuarios
+    // Verificar tabla usuarios
     await prisma.$queryRaw`SELECT 1 FROM usuarios LIMIT 1`;
+    
+    // Verificar tabla pagos (nueva)
+    try {
+      await prisma.$queryRaw`SELECT 1 FROM pagos LIMIT 1`;
+    } catch {
+      console.log('⚠️  Tabla "pagos" no existe, necesita migración');
+      return false;
+    }
+    
+    // Verificar campos de boleta en expensas
+    try {
+      await prisma.$queryRaw`SELECT "boletaUrl" FROM expensas LIMIT 1`;
+    } catch {
+      console.log('⚠️  Campos de boleta no existen en "expensas", necesita migración');
+      return false;
+    }
+    
+    // Verificar campo pagoId en comprobantes
+    try {
+      await prisma.$queryRaw`SELECT "pagoId" FROM comprobantes LIMIT 1`;
+    } catch {
+      console.log('⚠️  Campo "pagoId" no existe en "comprobantes", necesita migración');
+      return false;
+    }
+    
     return true;
   } catch (error: any) {
     // Si la tabla no existe, el error contendrá "does not exist"
