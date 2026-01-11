@@ -120,13 +120,6 @@ export async function pagosRoutes(fastify: FastifyInstance) {
           },
         });
         
-        // Actualizar pago con comprobante
-        await fastify.prisma.pago.update({
-          where: { id: pago.id },
-          data: {
-            comprobanteId: comprobante.id,
-          },
-        });
         
         // Actualizar estado de expensa si el monto coincide
         if (diferencia < 0.01) {
