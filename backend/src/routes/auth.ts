@@ -57,10 +57,22 @@ export async function authRoutes(fastify: FastifyInstance) {
           rol: usuario.rol,
         },
       };
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof z.ZodError) {
         return reply.status(400).send({ error: 'Datos inválidos', details: error.errors });
       }
+      
+      // Detectar errores de conexión a la base de datos
+      if (error?.code === 'P1001' || error?.name === 'PrismaClientInitializationError' || 
+          error?.message?.includes("Can't reach database")) {
+        fastify.log.error('Database connection error:', error);
+        return reply.status(503).send({ 
+          error: 'Servicio de base de datos no disponible',
+          message: 'El servidor no puede conectarse a la base de datos. Por favor, verifica la configuración de DATABASE_URL en Railway.',
+          code: 'DATABASE_UNAVAILABLE'
+        });
+      }
+      
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Error en el servidor' });
     }
