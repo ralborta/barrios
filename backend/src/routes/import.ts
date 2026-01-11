@@ -367,4 +367,173 @@ maria.gonzalez@example.com,/uploads/comprobante2.jpg,,comprobante2.jpg,image/jpe
     reply.header('Content-Disposition', 'attachment; filename="template_comprobantes.csv"');
     return csvTemplate;
   });
+
+  // Importar boletas desde CSV
+  fastify.post('/api/import/boletas', {
+    preHandler: [fastify.authenticate],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const data = await request.file();
+      
+      if (!data) {
+        return reply.status(400).send({ error: 'No se proporcionó ningún archivo' });
+      }
+
+      // Leer el contenido del archivo
+      const chunks: Buffer[] = [];
+      for await (const chunk of data.file) {
+        chunks.push(chunk);
+      }
+      const fileContent = Buffer.concat(chunks).toString('utf-8');
+
+      // Parsear CSV
+      const records = parse(fileContent, {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true,
+        bom: true,
+      });
+
+      if (records.length === 0) {
+        return reply.status(400).send({ error: 'El archivo CSV está vacío' });
+      }
+
+      // Validar estructura del CSV
+      const requiredColumns = ['expensaId', 'boletaUrl'];
+      const firstRow = records[0];
+      const missingColumns = requiredColumns.filter(col => !(col in firstRow));
+      
+      if (missingColumns.length > 0) {
+        return reply.status(400).send({ 
+          error: `Faltan columnas requeridas: ${missingColumns.join(', ')}`,
+          requiredColumns: ['expensaId', 'boletaUrl'],
+          optionalColumns: ['boletaNombreArchivo', 'boletaTipoArchivo'],
+        });
+      }
+
+      // Schema de validación para boleta en CSV
+      const boletaCsvSchema = z.object({
+        expensaId: z.string().min(1, 'ID de expensa es requerido'),
+        boletaUrl: z.string().min(1, 'URL de boleta es requerida'),
+        boletaNombreArchivo: z.string().optional(),
+        boletaTipoArchivo: z.string().optional(),
+      });
+
+      // Validar y procesar cada registro
+      const resultados = {
+        total: records.length,
+        exitosos: 0,
+        errores: 0,
+        resultados: {
+          exitosos: [] as Array<{ fila: number; expensa: any }>,
+          errores: [] as Array<{ fila: number; error: string; datos: any }>,
+        },
+      };
+
+      for (let i = 0; i < records.length; i++) {
+        const fila = i + 2; // +2 porque la fila 1 es el header y empezamos desde 0
+        const record = records[i];
+
+        try {
+          // Validar datos
+          const validated = boletaCsvSchema.parse(record);
+
+          // Verificar que la expensa existe
+          const expensa = await fastify.prisma.expensa.findUnique({
+            where: { id: validated.expensaId },
+            include: {
+              vecino: {
+                select: {
+                  id: true,
+                  nombre: true,
+                  apellido: true,
+                },
+              },
+              periodo: {
+                include: {
+                  country: {
+                    select: {
+                      name: true,
+                    },
+                  },
+                },
+              },
+            },
+          });
+
+          if (!expensa) {
+            resultados.resultados.errores.push({
+              fila,
+              error: `Expensa con ID "${validated.expensaId}" no existe`,
+              datos: record,
+            });
+            resultados.errores++;
+            continue;
+          }
+
+          // Actualizar expensa con la boleta
+          const expensaActualizada = await fastify.prisma.expensa.update({
+            where: { id: validated.expensaId },
+            data: {
+              boletaUrl: validated.boletaUrl,
+              boletaNombreArchivo: validated.boletaNombreArchivo || null,
+              boletaTipoArchivo: validated.boletaTipoArchivo || null,
+            },
+            include: {
+              vecino: {
+                select: {
+                  id: true,
+                  nombre: true,
+                  apellido: true,
+                },
+              },
+              periodo: {
+                include: {
+                  country: {
+                    select: {
+                      name: true,
+                    },
+                  },
+                },
+              },
+            },
+          });
+
+          resultados.resultados.exitosos.push({
+            fila,
+            expensa: expensaActualizada,
+          });
+          resultados.exitosos++;
+        } catch (error: any) {
+          resultados.resultados.errores.push({
+            fila,
+            error: error.message || 'Error desconocido',
+            datos: record,
+          });
+          resultados.errores++;
+        }
+      }
+
+      return {
+        success: true,
+        data: resultados,
+      };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Error al importar boletas' });
+    }
+  });
+
+  // Descargar template para importar boletas
+  fastify.get('/api/import/boletas/template', {
+    preHandler: [fastify.authenticate],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const csvTemplate = `expensaId,boletaUrl,boletaNombreArchivo,boletaTipoArchivo
+expensa-id-1,https://ejemplo.com/boleta1.pdf,boleta_enero_2024.pdf,application/pdf
+expensa-id-2,https://ejemplo.com/boleta2.pdf,boleta_febrero_2024.pdf,application/pdf`;
+
+    reply.header('Content-Type', 'text/csv; charset=utf-8');
+    reply.header('Content-Disposition', 'attachment; filename="template_boletas.csv"');
+    return csvTemplate;
+  });
 }

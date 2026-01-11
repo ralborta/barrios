@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Upload, Download, CheckCircle2, XCircle, AlertCircle, FileText, Users, Receipt } from "lucide-react"
+import { Upload, Download, CheckCircle2, XCircle, AlertCircle, FileText, Users, Receipt, FileCheck } from "lucide-react"
 import { importApi } from "@/lib/api"
 import { countriesApi } from "@/lib/api"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -34,6 +34,16 @@ interface ImportComprobantesResult {
   }
 }
 
+interface ImportBoletasResult {
+  total: number
+  exitosos: number
+  errores: number
+  resultados: {
+    exitosos: Array<{ fila: number; expensa: any }>
+    errores: Array<{ fila: number; error: string; datos: any }>
+  }
+}
+
 export default function ImportarPage() {
   // Estados para importación de vecinos
   const [vecinosFile, setVecinosFile] = React.useState<File | null>(null)
@@ -47,6 +57,12 @@ export default function ImportarPage() {
   const [comprobantesLoading, setComprobantesLoading] = React.useState(false)
   const [comprobantesResult, setComprobantesResult] = React.useState<ImportComprobantesResult | null>(null)
   const [comprobantesError, setComprobantesError] = React.useState<string | null>(null)
+  
+  // Estados para importación de boletas
+  const [boletasFile, setBoletasFile] = React.useState<File | null>(null)
+  const [boletasLoading, setBoletasLoading] = React.useState(false)
+  const [boletasResult, setBoletasResult] = React.useState<ImportBoletasResult | null>(null)
+  const [boletasError, setBoletasError] = React.useState<string | null>(null)
   
   const [countries, setCountries] = React.useState<Array<{ id: string; name: string }>>([])
 
@@ -214,12 +230,70 @@ export default function ImportarPage() {
     }
   }
 
+  // Handlers para boletas
+  const handleBoletasFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0]
+    if (selectedFile) {
+      if (!selectedFile.name.endsWith('.csv')) {
+        setBoletasError('Por favor, selecciona un archivo CSV')
+        return
+      }
+      setBoletasFile(selectedFile)
+      setBoletasError(null)
+      setBoletasResult(null)
+    }
+  }
+
+  const handleDownloadBoletasTemplate = async () => {
+    try {
+      const response = await importApi.downloadBoletasTemplate()
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'template_boletas.csv'
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+      }
+    } catch (err) {
+      setBoletasError('Error al descargar el template')
+    }
+  }
+
+  const handleImportBoletas = async () => {
+    if (!boletasFile) {
+      setBoletasError('Por favor, selecciona un archivo')
+      return
+    }
+
+    setBoletasLoading(true)
+    setBoletasError(null)
+    setBoletasResult(null)
+
+    try {
+      const response = await importApi.importBoletas(boletasFile)
+      
+      if (response.success && response.data) {
+        setBoletasResult(response.data as ImportBoletasResult)
+      } else {
+        setBoletasError(response.error || 'Error al importar el archivo')
+      }
+    } catch (err: any) {
+      setBoletasError(err.message || 'Error al procesar el archivo')
+    } finally {
+      setBoletasLoading(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <div>
+    <div>
         <h1 className="text-3xl font-bold">Importar Datos desde CSV</h1>
         <p className="text-muted-foreground">
-          Importa vecinos o comprobantes de pago desde archivos CSV
+          Importa vecinos, comprobantes de pago o boletas desde archivos CSV
         </p>
       </div>
 
@@ -232,6 +306,10 @@ export default function ImportarPage() {
           <TabsTrigger value="comprobantes">
             <Receipt className="mr-2 h-4 w-4" />
             Importar Comprobantes
+          </TabsTrigger>
+          <TabsTrigger value="boletas">
+            <FileCheck className="mr-2 h-4 w-4" />
+            Importar Boletas
           </TabsTrigger>
         </TabsList>
 
@@ -617,6 +695,183 @@ export default function ImportarPage() {
                         <Alert key={index} className="bg-green-50 dark:bg-green-950">
                           <AlertDescription>
                             <strong>Fila {success.fila}:</strong> {success.comprobante.nombreArchivo} - {success.comprobante.vecino.nombre} {success.comprobante.vecino.apellido}
+                          </AlertDescription>
+                        </Alert>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* Tab de Boletas */}
+        <TabsContent value="boletas" className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Subir Archivo CSV de Boletas</CardTitle>
+                <CardDescription>
+                  Selecciona un archivo CSV con las boletas de las expensas
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="boletas-file">Archivo CSV</Label>
+                  <div className="flex items-center gap-4">
+                    <Input
+                      id="boletas-file"
+                      type="file"
+                      accept=".csv"
+                      onChange={handleBoletasFileChange}
+                      disabled={boletasLoading}
+                    />
+                    {boletasFile && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <FileText className="h-4 w-4" />
+                        {boletasFile.name}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleImportBoletas}
+                    disabled={!boletasFile || boletasLoading}
+                    className="flex-1"
+                  >
+                    {boletasLoading ? (
+                      <>
+                        <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        Importando...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="mr-2 h-4 w-4" />
+                        Importar
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleDownloadBoletasTemplate}
+                    disabled={boletasLoading}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Template
+                  </Button>
+                </div>
+
+                {boletasError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>{boletasError}</AlertDescription>
+                  </Alert>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Formato del CSV - Boletas</CardTitle>
+                <CardDescription>
+                  El archivo CSV debe tener las siguientes columnas:
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div className="font-semibold">Columnas requeridas:</div>
+                  <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                    <li><code className="bg-muted px-1 rounded">expensaId</code> - ID de la expensa</li>
+                    <li><code className="bg-muted px-1 rounded">boletaUrl</code> - URL o ruta del archivo de la boleta</li>
+                  </ul>
+                </div>
+                <div className="space-y-2">
+                  <div className="font-semibold">Columnas opcionales:</div>
+                  <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                    <li><code className="bg-muted px-1 rounded">boletaNombreArchivo</code> - Nombre del archivo</li>
+                    <li><code className="bg-muted px-1 rounded">boletaTipoArchivo</code> - Tipo MIME (ej: application/pdf, image/jpeg)</li>
+                  </ul>
+                </div>
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Nota:</strong> La URL puede ser una ruta relativa (ej: /uploads/boleta.pdf) o una URL completa.
+                    Los archivos deben estar accesibles desde el servidor.
+                  </AlertDescription>
+                </Alert>
+                <div className="pt-4 border-t">
+                  <Button
+                    variant="outline"
+                    onClick={handleDownloadBoletasTemplate}
+                    className="w-full"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Descargar Template de Ejemplo
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Resultados Boletas */}
+          {boletasResult && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Resultados de la Importación de Boletas</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center p-4 bg-muted rounded-lg">
+                    <div className="text-2xl font-bold">{boletasResult.total}</div>
+                    <div className="text-sm text-muted-foreground">Total</div>
+                  </div>
+                  <div className="text-center p-4 bg-green-50 dark:bg-green-950 rounded-lg">
+                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                      {boletasResult.exitosos}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Exitosos</div>
+                  </div>
+                  <div className="text-center p-4 bg-red-50 dark:bg-red-950 rounded-lg">
+                    <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+                      {boletasResult.errores}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Errores</div>
+                  </div>
+                </div>
+
+                {boletasResult.resultados.errores.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="font-semibold flex items-center gap-2">
+                      <XCircle className="h-4 w-4 text-red-500" />
+                      Errores ({boletasResult.resultados.errores.length})
+                    </div>
+                    <div className="max-h-48 overflow-y-auto space-y-1">
+                      {boletasResult.resultados.errores.map((error, index) => (
+                        <Alert key={index} variant="destructive">
+                          <AlertDescription>
+                            <strong>Fila {error.fila}:</strong> {error.error}
+                          </AlertDescription>
+                        </Alert>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {boletasResult.resultados.exitosos.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="font-semibold flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      Boletas Importadas ({boletasResult.resultados.exitosos.length})
+                    </div>
+                    <div className="max-h-48 overflow-y-auto space-y-1">
+                      {boletasResult.resultados.exitosos.map((success, index) => (
+                        <Alert key={index} className="bg-green-50 dark:bg-green-950">
+                          <AlertDescription>
+                            <strong>Fila {success.fila}:</strong> {success.expensa.vecino.nombre} {success.expensa.vecino.apellido} - {success.expensa.periodo.mes}/{success.expensa.periodo.anio} - {success.expensa.boletaNombreArchivo || 'boleta.pdf'}
                           </AlertDescription>
                         </Alert>
                       ))}

@@ -268,4 +268,18 @@ export const importApi = {
       },
     });
   },
+  importBoletas: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/api/import/boletas', formData);
+  },
+  downloadBoletasTemplate: () => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    return fetch(`${API_URL}/api/import/boletas/template`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+  },
 };
