@@ -69,7 +69,7 @@ export function Sidebar() {
             >
               <Icon className={cn(
                 "h-5 w-5 transition-all duration-200",
-                isActive ? item.color : "text-slate-400 group-hover:" + item.color.replace("text-", "")
+                isActive ? item.color : "text-slate-400 group-hover:text-blue-400"
               )} />
               <span className="flex-1">{item.name}</span>
               {isActive && <Check className="ml-auto h-4 w-4 text-blue-400" />}
