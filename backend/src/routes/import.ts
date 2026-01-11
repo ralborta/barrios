@@ -399,22 +399,30 @@ maria.gonzalez@example.com,/uploads/comprobante2.jpg,,comprobante2.jpg,image/jpe
       }
 
       // Validar estructura del CSV
-      const requiredColumns = ['expensaId', 'boletaUrl'];
+      const requiredColumns = ['vecinoEmail', 'countryId', 'mes', 'anio', 'monto', 'fechaVencimiento'];
       const firstRow = records[0];
       const missingColumns = requiredColumns.filter(col => !(col in firstRow));
       
       if (missingColumns.length > 0) {
         return reply.status(400).send({ 
           error: `Faltan columnas requeridas: ${missingColumns.join(', ')}`,
-          requiredColumns: ['expensaId', 'boletaUrl'],
-          optionalColumns: ['boletaNombreArchivo', 'boletaTipoArchivo'],
+          requiredColumns: ['vecinoEmail', 'countryId', 'mes', 'anio', 'monto', 'fechaVencimiento'],
+          optionalColumns: ['vecinoId', 'periodoId', 'estado', 'boletaUrl', 'boletaNombreArchivo', 'boletaTipoArchivo'],
         });
       }
 
-      // Schema de validación para boleta en CSV
+      // Schema de validación para boleta/expensa en CSV
       const boletaCsvSchema = z.object({
-        expensaId: z.string().min(1, 'ID de expensa es requerido'),
-        boletaUrl: z.string().min(1, 'URL de boleta es requerida'),
+        vecinoEmail: z.string().email('Email de vecino inválido'),
+        vecinoId: z.string().optional(),
+        countryId: z.string().min(1, 'ID de country es requerido'),
+        periodoId: z.string().optional(),
+        mes: z.string().transform((val) => parseInt(val, 10)).pipe(z.number().min(1).max(12)),
+        anio: z.string().transform((val) => parseInt(val, 10)).pipe(z.number().min(2020)),
+        monto: z.string().transform((val) => parseFloat(val.replace(',', '.'))).pipe(z.number().positive()),
+        fechaVencimiento: z.string(),
+        estado: z.enum(['PENDIENTE', 'PAGO_INFORMADO', 'CONFIRMADO', 'EN_MORA', 'EN_RECUPERO', 'SIN_RESPUESTA', 'PAUSADO']).optional(),
+        boletaUrl: z.string().optional(),
         boletaNombreArchivo: z.string().optional(),
         boletaTipoArchivo: z.string().optional(),
       });
@@ -438,70 +446,158 @@ maria.gonzalez@example.com,/uploads/comprobante2.jpg,,comprobante2.jpg,image/jpe
           // Validar datos
           const validated = boletaCsvSchema.parse(record);
 
-          // Verificar que la expensa existe
-          const expensa = await fastify.prisma.expensa.findUnique({
-            where: { id: validated.expensaId },
-            include: {
-              vecino: {
-                select: {
-                  id: true,
-                  nombre: true,
-                  apellido: true,
-                },
-              },
-              periodo: {
-                include: {
-                  country: {
-                    select: {
-                      name: true,
-                    },
-                  },
-                },
-              },
-            },
+          // Buscar vecino por email o ID
+          const vecino = await fastify.prisma.vecino.findFirst({
+            where: validated.vecinoId 
+              ? { id: validated.vecinoId }
+              : { email: validated.vecinoEmail },
           });
 
-          if (!expensa) {
+          if (!vecino) {
             resultados.resultados.errores.push({
               fila,
-              error: `Expensa con ID "${validated.expensaId}" no existe`,
+              error: `Vecino con email "${validated.vecinoEmail}" no existe`,
               datos: record,
             });
             resultados.errores++;
             continue;
           }
 
-          // Actualizar expensa con la boleta
-          const expensaActualizada = await fastify.prisma.expensa.update({
-            where: { id: validated.expensaId },
-            data: {
-              boletaUrl: validated.boletaUrl,
-              boletaNombreArchivo: validated.boletaNombreArchivo || null,
-              boletaTipoArchivo: validated.boletaTipoArchivo || null,
-            },
-            include: {
-              vecino: {
-                select: {
-                  id: true,
-                  nombre: true,
-                  apellido: true,
+          // Buscar o crear período
+          let periodo;
+          if (validated.periodoId) {
+            periodo = await fastify.prisma.periodo.findUnique({
+              where: { id: validated.periodoId },
+            });
+            if (!periodo) {
+              resultados.resultados.errores.push({
+                fila,
+                error: `Período con ID "${validated.periodoId}" no existe`,
+                datos: record,
+              });
+              resultados.errores++;
+              continue;
+            }
+          } else {
+            // Buscar período por countryId, mes y año
+            periodo = await fastify.prisma.periodo.findUnique({
+              where: {
+                countryId_mes_anio: {
+                  countryId: validated.countryId,
+                  mes: validated.mes,
+                  anio: validated.anio,
                 },
               },
-              periodo: {
-                include: {
-                  country: {
-                    select: {
-                      name: true,
-                    },
-                  },
+            });
+
+            // Si no existe, crear el período
+            if (!periodo) {
+              periodo = await fastify.prisma.periodo.create({
+                data: {
+                  countryId: validated.countryId,
+                  mes: validated.mes,
+                  anio: validated.anio,
+                  montoBase: validated.monto,
+                  fechaVencimiento: new Date(validated.fechaVencimiento),
                 },
+              });
+            }
+          }
+
+          // Parsear fecha de vencimiento
+          let fechaVencimiento: Date;
+          try {
+            fechaVencimiento = new Date(validated.fechaVencimiento);
+            if (isNaN(fechaVencimiento.getTime())) {
+              throw new Error('Fecha inválida');
+            }
+          } catch {
+            resultados.resultados.errores.push({
+              fila,
+              error: `Fecha de vencimiento inválida: "${validated.fechaVencimiento}"`,
+              datos: record,
+            });
+            resultados.errores++;
+            continue;
+          }
+
+          // Buscar expensa existente o crear nueva
+          let expensa = await fastify.prisma.expensa.findUnique({
+            where: {
+              periodoId_vecinoId: {
+                periodoId: periodo.id,
+                vecinoId: vecino.id,
               },
             },
           });
 
+          const expensaData: any = {
+            periodoId: periodo.id,
+            vecinoId: vecino.id,
+            monto: validated.monto,
+            fechaVencimiento: fechaVencimiento,
+            estado: validated.estado || 'PENDIENTE',
+          };
+
+          // Agregar datos de boleta si se proporcionan
+          if (validated.boletaUrl) {
+            expensaData.boletaUrl = validated.boletaUrl;
+            expensaData.boletaNombreArchivo = validated.boletaNombreArchivo || null;
+            expensaData.boletaTipoArchivo = validated.boletaTipoArchivo || null;
+          }
+
+          if (expensa) {
+            // Actualizar expensa existente
+            expensa = await fastify.prisma.expensa.update({
+              where: { id: expensa.id },
+              data: expensaData,
+              include: {
+                vecino: {
+                  select: {
+                    id: true,
+                    nombre: true,
+                    apellido: true,
+                  },
+                },
+                periodo: {
+                  include: {
+                    country: {
+                      select: {
+                        name: true,
+                      },
+                    },
+                  },
+                },
+              },
+            });
+          } else {
+            // Crear nueva expensa
+            expensa = await fastify.prisma.expensa.create({
+              data: expensaData,
+              include: {
+                vecino: {
+                  select: {
+                    id: true,
+                    nombre: true,
+                    apellido: true,
+                  },
+                },
+                periodo: {
+                  include: {
+                    country: {
+                      select: {
+                        name: true,
+                      },
+                    },
+                  },
+                },
+              },
+            });
+          }
+
           resultados.resultados.exitosos.push({
             fila,
-            expensa: expensaActualizada,
+            expensa: expensa,
           });
           resultados.exitosos++;
         } catch (error: any) {
@@ -528,9 +624,9 @@ maria.gonzalez@example.com,/uploads/comprobante2.jpg,,comprobante2.jpg,image/jpe
   fastify.get('/api/import/boletas/template', {
     preHandler: [fastify.authenticate],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const csvTemplate = `expensaId,boletaUrl,boletaNombreArchivo,boletaTipoArchivo
-expensa-id-1,https://ejemplo.com/boleta1.pdf,boleta_enero_2024.pdf,application/pdf
-expensa-id-2,https://ejemplo.com/boleta2.pdf,boleta_febrero_2024.pdf,application/pdf`;
+    const csvTemplate = `vecinoEmail,countryId,mes,anio,monto,fechaVencimiento,estado,boletaUrl,boletaNombreArchivo,boletaTipoArchivo
+juan.perez@example.com,country-id-1,1,2024,15000.00,2024-01-15T00:00:00Z,PENDIENTE,https://ejemplo.com/boleta1.pdf,boleta_enero_2024.pdf,application/pdf
+maria.gonzalez@example.com,country-id-1,1,2024,18000.50,2024-01-15T00:00:00Z,PENDIENTE,/uploads/boleta2.pdf,boleta_enero_2024.pdf,application/pdf`;
 
     reply.header('Content-Type', 'text/csv; charset=utf-8');
     reply.header('Content-Disposition', 'attachment; filename="template_boletas.csv"');

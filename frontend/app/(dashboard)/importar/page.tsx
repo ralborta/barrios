@@ -776,22 +776,30 @@ export default function ImportarPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Formato del CSV - Boletas</CardTitle>
+                <CardTitle>Formato del CSV - Boletas/Expensas</CardTitle>
                 <CardDescription>
-                  El archivo CSV debe tener las siguientes columnas:
+                  El archivo CSV debe tener las siguientes columnas. Se crearán o actualizarán las expensas con todos sus datos.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <div className="font-semibold">Columnas requeridas:</div>
                   <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                    <li><code className="bg-muted px-1 rounded">expensaId</code> - ID de la expensa</li>
-                    <li><code className="bg-muted px-1 rounded">boletaUrl</code> - URL o ruta del archivo de la boleta</li>
+                    <li><code className="bg-muted px-1 rounded">vecinoEmail</code> - Email del vecino</li>
+                    <li><code className="bg-muted px-1 rounded">countryId</code> - ID del country/barrio</li>
+                    <li><code className="bg-muted px-1 rounded">mes</code> - Mes (1-12)</li>
+                    <li><code className="bg-muted px-1 rounded">anio</code> - Año (ej: 2024)</li>
+                    <li><code className="bg-muted px-1 rounded">monto</code> - Monto de la expensa (ej: 15000.50)</li>
+                    <li><code className="bg-muted px-1 rounded">fechaVencimiento</code> - Fecha de vencimiento (ISO: 2024-01-15T00:00:00Z)</li>
                   </ul>
                 </div>
                 <div className="space-y-2">
                   <div className="font-semibold">Columnas opcionales:</div>
                   <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                    <li><code className="bg-muted px-1 rounded">vecinoId</code> - ID del vecino (si no se usa vecinoEmail)</li>
+                    <li><code className="bg-muted px-1 rounded">periodoId</code> - ID del período (si ya existe)</li>
+                    <li><code className="bg-muted px-1 rounded">estado</code> - Estado inicial (PENDIENTE, EN_MORA, etc.)</li>
+                    <li><code className="bg-muted px-1 rounded">boletaUrl</code> - URL o ruta del archivo de la boleta</li>
                     <li><code className="bg-muted px-1 rounded">boletaNombreArchivo</code> - Nombre del archivo</li>
                     <li><code className="bg-muted px-1 rounded">boletaTipoArchivo</code> - Tipo MIME (ej: application/pdf, image/jpeg)</li>
                   </ul>
@@ -799,8 +807,8 @@ export default function ImportarPage() {
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    <strong>Nota:</strong> La URL puede ser una ruta relativa (ej: /uploads/boleta.pdf) o una URL completa.
-                    Los archivos deben estar accesibles desde el servidor.
+                    <strong>Nota:</strong> Si el período no existe, se creará automáticamente. Si la expensa ya existe para ese vecino y período, se actualizará con los nuevos datos.
+                    La boletaUrl puede ser una ruta relativa (ej: /uploads/boleta.pdf) o una URL completa.
                   </AlertDescription>
                 </Alert>
                 <div className="pt-4 border-t">
