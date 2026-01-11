@@ -133,11 +133,12 @@ export function DialogEnviarMensaje({
     try {
       const response = await templatesApi.get(templateId)
       if (response.success && response.data) {
+        const template = response.data as any
         setFormData({
           ...formData,
           templateId,
-          contenido: response.data.contenido || "",
-          asunto: response.data.asunto || "",
+          contenido: template.contenido || "",
+          asunto: template.asunto || "",
         })
       }
     } catch (err) {
