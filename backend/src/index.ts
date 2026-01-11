@@ -31,8 +31,14 @@ async function checkDatabaseSetup() {
     if (error?.message?.includes('does not exist') || error?.code === '42P01') {
       return false;
     }
-    // Otro error, lo relanzamos
-    throw error;
+    // Si hay un error de conexión, asumir que las tablas no existen
+    // (será manejado por el try-catch de la conexión principal)
+    if (error?.message?.includes('Can\'t reach database') || error?.code === 'P1001') {
+      return false;
+    }
+    // Para otros errores, loguear pero no crashear - asumir que las tablas existen
+    console.warn('⚠️  Error verificando setup de DB, asumiendo que las tablas existen:', error?.message);
+    return true;
   }
 }
 
