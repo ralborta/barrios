@@ -327,7 +327,14 @@ async function start() {
     await fastify.register(pagosRoutes);
     await fastify.register(jobsRoutes);
     await fastify.register(webhooksRoutes);
-    await fastify.register(templatesRoutes);
+    
+    // Registrar templatesRoutes con manejo de errores para no bloquear el inicio
+    try {
+      await fastify.register(templatesRoutes);
+    } catch (error: any) {
+      console.error('⚠️  Error registrando templatesRoutes:', error?.message);
+      console.error('⚠️  Server will continue without templates routes');
+    }
     
     // Configurar cronjobs (ejecutar cada hora)
     // En producción, esto se puede configurar desde variables de entorno
