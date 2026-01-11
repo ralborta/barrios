@@ -146,20 +146,20 @@ export default function MensajesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Interacciones y Mensajes</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">Interacciones y Mensajes</h1>
+          <p className="text-slate-600 mt-1">
             Timeline de todas las comunicaciones con los vecinos
           </p>
         </div>
-        <Button onClick={() => setEnviarDialogOpen(true)}>
+        <Button onClick={() => setEnviarDialogOpen(true)} className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 shadow-md">
           <MessageSquare className="mr-2 h-4 w-4" />
           Enviar Mensaje
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Filtros</CardTitle>
+      <Card className="border-0 shadow-lg">
+        <CardHeader className="bg-gradient-to-r from-slate-50 to-pink-50/30 border-b">
+          <CardTitle className="text-slate-800">Filtros</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap items-center gap-4">
@@ -218,9 +218,9 @@ export default function MensajesPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Timeline de Mensajes</CardTitle>
+      <Card className="border-0 shadow-lg">
+        <CardHeader className="bg-gradient-to-r from-slate-50 to-pink-50/30 border-b">
+          <CardTitle className="text-slate-800">Timeline de Mensajes</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (

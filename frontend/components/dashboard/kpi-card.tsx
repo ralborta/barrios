@@ -32,15 +32,19 @@ export function KPICard({ title, value, change, className }: KPICardProps) {
   }
 
   return (
-    <Card className={cn("", className)}>
+    <Card className={cn("border-0 shadow-md hover:shadow-lg transition-shadow duration-200 bg-gradient-to-br from-white to-slate-50", className)}>
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            <p className="text-3xl font-bold mt-2">{value.toLocaleString()}</p>
+            <p className="text-sm font-medium text-slate-600 mb-1">{title}</p>
+            <p className="text-3xl font-bold mt-2 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">{value.toLocaleString()}</p>
           </div>
           {change && (
-            <div className={cn("flex items-center gap-1 text-sm", getChangeColor())}>
+            <div className={cn("flex items-center gap-1 text-sm font-semibold px-2 py-1 rounded-md", 
+              change.type === "increase" ? "bg-green-100 text-green-700" :
+              change.type === "decrease" ? "bg-red-100 text-red-700" :
+              "bg-gray-100 text-gray-600"
+            )}>
               {getChangeIcon()}
               <span>{change.value}</span>
             </div>

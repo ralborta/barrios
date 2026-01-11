@@ -209,8 +209,8 @@ export default function VecinosPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Vecinos</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">Vecinos</h1>
+          <p className="text-slate-600 mt-1">
             Directorio de vecinos
           </p>
         </div>
@@ -219,15 +219,16 @@ export default function VecinosPage() {
             setEditingVecinoId(undefined)
             setFormOpen(true)
           }}
+          className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-md"
         >
           <Plus className="mr-2 h-4 w-4" />
           Nuevo Vecino
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Listado de Vecinos</CardTitle>
+      <Card className="border-0 shadow-lg">
+        <CardHeader className="bg-gradient-to-r from-slate-50 to-green-50/30 border-b">
+          <CardTitle className="text-slate-800">Listado de Vecinos</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-4 mb-4">

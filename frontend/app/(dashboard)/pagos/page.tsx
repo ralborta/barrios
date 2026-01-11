@@ -227,8 +227,8 @@ export default function PagosPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Gestión de Pagos</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">Gestión de Pagos</h1>
+          <p className="text-slate-600 mt-1">
             Revisa y gestiona los pagos del concentrador. La mayoría se concilian automáticamente con IA.
           </p>
         </div>

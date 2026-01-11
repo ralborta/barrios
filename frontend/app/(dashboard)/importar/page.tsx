@@ -291,7 +291,7 @@ export default function ImportarPage() {
   return (
     <div className="space-y-6">
     <div>
-        <h1 className="text-3xl font-bold">Importar Datos desde CSV</h1>
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent">Importar Datos desde CSV</h1>
         <p className="text-muted-foreground">
           Importa vecinos, comprobantes de pago o boletas desde archivos CSV
         </p>

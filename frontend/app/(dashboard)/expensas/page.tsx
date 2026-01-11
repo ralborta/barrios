@@ -341,8 +341,8 @@ export default function ExpensasPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Expensas</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">Expensas</h1>
+          <p className="text-slate-600 mt-1">
             Gestiona las expensas de los vecinos
           </p>
         </div>
@@ -355,10 +355,10 @@ export default function ExpensasPage() {
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
+      <Card className="border-0 shadow-lg">
+        <CardHeader className="bg-gradient-to-r from-slate-50 to-purple-50/30 border-b">
           <div className="flex items-center justify-between">
-            <CardTitle>Listado de Expensas</CardTitle>
+            <CardTitle className="text-slate-800">Listado de Expensas</CardTitle>
             {selectedRows.length > 0 && (
               <div className="flex gap-2">
                 <Button

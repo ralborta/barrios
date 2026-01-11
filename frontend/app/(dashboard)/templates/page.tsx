@@ -198,12 +198,12 @@ export default function TemplatesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Templates de Mensajes</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Templates de Mensajes</h1>
+          <p className="text-slate-600 mt-1">
             Gestiona las plantillas de mensajes para WhatsApp y Email
           </p>
         </div>
-        <Button onClick={() => handleOpenDialog()}>
+        <Button onClick={() => handleOpenDialog()} className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-md">
           <Plus className="mr-2 h-4 w-4" />
           Nuevo Template
         </Button>
@@ -215,10 +215,10 @@ export default function TemplatesPage() {
         </div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Templates ({templates.length})</CardTitle>
-          <CardDescription>
+      <Card className="border-0 shadow-lg">
+        <CardHeader className="bg-gradient-to-r from-slate-50 to-indigo-50/30 border-b">
+          <CardTitle className="text-slate-800">Templates ({templates.length})</CardTitle>
+          <CardDescription className="text-slate-600">
             Plantillas con variables dinámicas como {`{nombre}`}, {`{monto}`}, {`{fechaVencimiento}`}, etc.
           </CardDescription>
         </CardHeader>

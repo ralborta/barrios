@@ -195,7 +195,7 @@ export default function BoletasPage() {
       {/* Buscador */}
       <Card>
         <CardHeader>
-          <CardTitle>Buscar Boletas</CardTitle>
+          <CardTitle className="text-slate-800">Buscar Boletas</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="relative">

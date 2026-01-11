@@ -405,7 +405,7 @@ export default function ComprobantesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Bandeja de Comprobantes</h1>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">Bandeja de Comprobantes</h1>
           <p className="text-muted-foreground">
             Gestiona los comprobantes recibidos de los vecinos
           </p>
