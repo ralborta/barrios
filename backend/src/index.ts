@@ -16,6 +16,7 @@ import { importRoutes } from './routes/import.js';
 import { pagosRoutes } from './routes/pagos.js';
 import { jobsRoutes } from './routes/jobs.js';
 import { webhooksRoutes } from './routes/webhooks.js';
+import { templatesRoutes } from './routes/templates.js';
 import cron from 'node-cron';
 
 const prisma = new PrismaClient();
@@ -326,6 +327,7 @@ async function start() {
     await fastify.register(pagosRoutes);
     await fastify.register(jobsRoutes);
     await fastify.register(webhooksRoutes);
+    await fastify.register(templatesRoutes);
     
     // Configurar cronjobs (ejecutar cada hora)
     // En producción, esto se puede configurar desde variables de entorno

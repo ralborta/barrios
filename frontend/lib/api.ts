@@ -236,6 +236,20 @@ export const mensajesApi = {
   update: (id: string, data: any) => api.put(`/api/mensajes/${id}`, data),
   delete: (id: string) => api.delete(`/api/mensajes/${id}`),
   getByExpensa: (expensaId: string) => api.get(`/api/mensajes/expensa/${expensaId}`),
+  sendBatch: (data: { vecinoIds: string[]; canal: 'WHATSAPP' | 'EMAIL'; tipo: string; contenido?: string; asunto?: string; templateId?: string; expensaIds?: Record<string, string> }) => {
+    return api.post('/api/mensajes/batch', data);
+  },
+};
+
+export const templatesApi = {
+  list: (params?: { tipo?: string; canal?: string; activo?: boolean }) => {
+    const query = new URLSearchParams(params as any).toString();
+    return api.get<any[]>(`/api/templates${query ? `?${query}` : ''}`);
+  },
+  get: (id: string) => api.get(`/api/templates/${id}`),
+  create: (data: any) => api.post('/api/templates', data),
+  update: (id: string, data: any) => api.put(`/api/templates/${id}`, data),
+  delete: (id: string) => api.delete(`/api/templates/${id}`),
 };
 
 // Import endpoints

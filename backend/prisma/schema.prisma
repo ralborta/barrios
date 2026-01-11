@@ -282,3 +282,27 @@ enum RolUsuario {
   OPERADOR
   LECTURA
 }
+
+// Modelo de Template de Mensaje
+model TemplateMensaje {
+  id          String   @id @default(cuid())
+  nombre      String   // Nombre del template
+  descripcion String?  // Descripción del template
+  tipo        TipoMensaje // Tipo de mensaje (EMISION, RECORDATORIO, etc.)
+  canal       CanalMensaje // Canal (WHATSAPP, EMAIL)
+  
+  // Contenido del template con variables
+  contenido   String   // Contenido con variables como {nombre}, {monto}, etc.
+  asunto      String?  // Asunto (para EMAIL)
+  
+  // Variables disponibles (JSON con lista de variables que usa este template)
+  variables   String?  // JSON: ["nombre", "monto", "fechaVencimiento", etc.]
+  
+  // Configuración
+  activo      Boolean  @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("template_mensajes")
+}

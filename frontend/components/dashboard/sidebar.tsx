@@ -33,6 +33,7 @@ const navigation = [
   { name: "Comprobantes", href: "/comprobantes", icon: FileText },
   { name: "Pagos", href: "/pagos", icon: CreditCard },
   { name: "Mensajes", href: "/mensajes", icon: MessageSquare },
+  { name: "Templates", href: "/templates", icon: FileText },
   { name: "Importar CSV", href: "/importar", icon: Upload },
   { name: "Reportes", href: "/reportes", icon: BarChart3 },
 ]

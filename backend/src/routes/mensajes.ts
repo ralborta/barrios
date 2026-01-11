@@ -1,5 +1,8 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
+import { procesarTemplate, validarVariables } from '../services/template.service.js';
+import { sendWhatsAppMessage } from '../services/whatsapp.service.js';
+import { sendEmail } from '../services/email.service.js';
 
 // Prisma se importa desde index.ts
 declare module 'fastify' {
@@ -23,8 +26,27 @@ const createMensajeSchema = z.object({
   ]),
   contenido: z.string().optional(),
   asunto: z.string().optional(),
+  templateId: z.string().optional(), // ID del template a usar
   whatsappId: z.string().optional(),
   emailId: z.string().optional(),
+});
+
+const enviarBatchSchema = z.object({
+  vecinoIds: z.array(z.string()).min(1),
+  canal: z.enum(['WHATSAPP', 'EMAIL']),
+  tipo: z.enum([
+    'EMISION',
+    'RECORDATORIO_VENCIMIENTO',
+    'SEGUIMIENTO',
+    'CIERRE_MES',
+    'MORA',
+    'RECUPERO',
+    'MANUAL',
+  ]),
+  contenido: z.string().optional(),
+  asunto: z.string().optional(),
+  templateId: z.string().optional(), // ID del template a usar
+  expensaIds: z.record(z.string(), z.string()).optional(), // Mapa de vecinoId -> expensaId
 });
 
 const updateMensajeSchema = z.object({
@@ -192,6 +214,58 @@ export async function mensajesRoutes(fastify: FastifyInstance) {
         }
       }
 
+      // Si hay templateId, cargar el template y procesarlo
+      let contenidoFinal = body.contenido || '';
+      let asuntoFinal = body.asunto || '';
+
+      if (body.templateId) {
+        const template = await fastify.prisma.templateMensaje.findUnique({
+          where: { id: body.templateId },
+        });
+
+        if (!template) {
+          return reply.status(404).send({ error: 'Template no encontrado' });
+        }
+
+        // Obtener datos del vecino y expensa para las variables
+        const expensa = body.expensaId
+          ? await fastify.prisma.expensa.findUnique({
+              where: { id: body.expensaId },
+              include: {
+                periodo: {
+                  include: {
+                    country: true,
+                  },
+                },
+              },
+            })
+          : null;
+
+        // Construir contexto de variables
+        const variables: any = {
+          nombre: vecino.nombre,
+          apellido: vecino.apellido,
+          email: vecino.email,
+          telefono: vecino.telefono || '',
+        };
+
+        if (expensa) {
+          variables.monto = Number(expensa.monto);
+          variables.fechaVencimiento = expensa.fechaVencimiento;
+          variables.estado = expensa.estado;
+          variables.periodo = `${expensa.periodo.mes}/${expensa.periodo.anio}`;
+          variables.mes = expensa.periodo.mes;
+          variables.anio = expensa.periodo.anio;
+          variables.country = expensa.periodo.country.name;
+        }
+
+        // Procesar template
+        contenidoFinal = procesarTemplate(template.contenido, variables);
+        if (template.asunto) {
+          asuntoFinal = procesarTemplate(template.asunto, variables);
+        }
+      }
+
       // Crear el mensaje
       const mensaje = await fastify.prisma.mensaje.create({
         data: {
@@ -199,8 +273,8 @@ export async function mensajesRoutes(fastify: FastifyInstance) {
           expensaId: body.expensaId || null,
           canal: body.canal,
           tipo: body.tipo,
-          contenido: body.contenido || null,
-          asunto: body.asunto || null,
+          contenido: contenidoFinal,
+          asunto: asuntoFinal || null,
           whatsappId: body.whatsappId || null,
           emailId: body.emailId || null,
           estado: 'ENVIADO',
@@ -225,14 +299,62 @@ export async function mensajesRoutes(fastify: FastifyInstance) {
         },
       });
 
-      // TODO: Aquí se integrará con los servicios de WhatsApp/Email
-      // para enviar el mensaje realmente
-      // Por ahora solo creamos el registro
+      // Enviar el mensaje según el canal
+      try {
+        if (body.canal === 'WHATSAPP' && vecino.telefono) {
+          const whatsappResult = await sendWhatsAppMessage({
+            to: vecino.telefono,
+            message: contenidoFinal,
+          });
+
+          if (whatsappResult.success && whatsappResult.messageId) {
+            await fastify.prisma.mensaje.update({
+              where: { id: mensaje.id },
+              data: {
+                whatsappId: whatsappResult.messageId,
+                estado: 'ENTREGADO',
+              },
+            });
+          } else {
+            await fastify.prisma.mensaje.update({
+              where: { id: mensaje.id },
+              data: { estado: 'ERROR' },
+            });
+          }
+        } else if (body.canal === 'EMAIL' && vecino.email) {
+          const emailResult = await sendEmail({
+            to: vecino.email,
+            subject: asuntoFinal || 'Mensaje del sistema',
+            html: contenidoFinal.replace(/\n/g, '<br>'),
+          });
+
+          if (emailResult.success && emailResult.messageId) {
+            await fastify.prisma.mensaje.update({
+              where: { id: mensaje.id },
+              data: {
+                emailId: emailResult.messageId,
+                estado: 'ENTREGADO',
+              },
+            });
+          } else {
+            await fastify.prisma.mensaje.update({
+              where: { id: mensaje.id },
+              data: { estado: 'ERROR' },
+            });
+          }
+        }
+      } catch (sendError: any) {
+        fastify.log.error('Error enviando mensaje:', sendError);
+        await fastify.prisma.mensaje.update({
+          where: { id: mensaje.id },
+          data: { estado: 'ERROR' },
+        });
+      }
 
       return {
         success: true,
         data: mensaje,
-        message: 'Mensaje creado. El envío se procesará próximamente.',
+        message: 'Mensaje enviado correctamente',
       };
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -303,6 +425,186 @@ export async function mensajesRoutes(fastify: FastifyInstance) {
     } catch (error) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Error al eliminar mensaje' });
+    }
+  });
+
+  // Enviar mensajes en batch (a varios vecinos)
+  fastify.post('/api/mensajes/batch', {
+    preHandler: [fastify.authenticate],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const body = enviarBatchSchema.parse(request.body);
+
+      // Cargar template si se proporciona
+      let template = null;
+      if (body.templateId) {
+        template = await fastify.prisma.templateMensaje.findUnique({
+          where: { id: body.templateId },
+        });
+
+        if (!template) {
+          return reply.status(404).send({ error: 'Template no encontrado' });
+        }
+      }
+
+      // Cargar todos los vecinos
+      const vecinos = await fastify.prisma.vecino.findMany({
+        where: {
+          id: { in: body.vecinoIds },
+        },
+      });
+
+      if (vecinos.length === 0) {
+        return reply.status(400).send({ error: 'No se encontraron vecinos' });
+      }
+
+      // Cargar expensas si se proporcionan
+      const expensaIds = body.expensaIds ? Object.values(body.expensaIds) : [];
+      const expensasMap = new Map();
+      if (expensaIds.length > 0) {
+        const expensas = await fastify.prisma.expensa.findMany({
+          where: { id: { in: expensaIds } },
+          include: {
+            periodo: {
+              include: {
+                country: true,
+              },
+            },
+          },
+        });
+        expensas.forEach((e: any) => expensasMap.set(e.id, e));
+      }
+
+      const resultados = {
+        total: vecinos.length,
+        exitosos: 0,
+        errores: 0,
+        mensajes: [] as any[],
+      };
+
+      // Procesar cada vecino (enviar poco a poco)
+      for (let i = 0; i < vecinos.length; i++) {
+        const vecino = vecinos[i];
+        try {
+          // Determinar expensa para este vecino
+          const expensaId = body.expensaIds?.[vecino.id] || null;
+          const expensa = expensaId ? expensasMap.get(expensaId) : null;
+
+          // Procesar contenido (template o contenido directo)
+          let contenidoFinal = body.contenido || '';
+          let asuntoFinal = body.asunto || '';
+
+          if (template) {
+            const variables: any = {
+              nombre: vecino.nombre,
+              apellido: vecino.apellido,
+              email: vecino.email,
+              telefono: vecino.telefono || '',
+            };
+
+            if (expensa) {
+              variables.monto = Number(expensa.monto);
+              variables.fechaVencimiento = expensa.fechaVencimiento;
+              variables.estado = expensa.estado;
+              variables.periodo = `${expensa.periodo.mes}/${expensa.periodo.anio}`;
+              variables.mes = expensa.periodo.mes;
+              variables.anio = expensa.periodo.anio;
+              variables.country = expensa.periodo.country.name;
+            }
+
+            contenidoFinal = procesarTemplate(template.contenido, variables);
+            if (template.asunto) {
+              asuntoFinal = procesarTemplate(template.asunto, variables);
+            }
+          }
+
+          // Crear mensaje
+          const mensaje = await fastify.prisma.mensaje.create({
+            data: {
+              vecinoId: vecino.id,
+              expensaId: expensaId,
+              canal: body.canal,
+              tipo: body.tipo,
+              contenido: contenidoFinal,
+              asunto: asuntoFinal || null,
+              estado: 'ENVIADO',
+            },
+          });
+
+          // Enviar mensaje (en background, poco a poco)
+          // Usar setTimeout para espaciar los envíos
+          setTimeout(async () => {
+            try {
+              if (body.canal === 'WHATSAPP' && vecino.telefono) {
+                const whatsappResult = await sendWhatsAppMessage({
+                  to: vecino.telefono,
+                  message: contenidoFinal,
+                });
+
+                if (whatsappResult.success && whatsappResult.messageId) {
+                  await fastify.prisma.mensaje.update({
+                    where: { id: mensaje.id },
+                    data: {
+                      whatsappId: whatsappResult.messageId,
+                      estado: 'ENTREGADO',
+                    },
+                  });
+                } else {
+                  await fastify.prisma.mensaje.update({
+                    where: { id: mensaje.id },
+                    data: { estado: 'ERROR' },
+                  });
+                }
+              } else if (body.canal === 'EMAIL' && vecino.email) {
+                const emailResult = await sendEmail({
+                  to: vecino.email,
+                  subject: asuntoFinal || 'Mensaje del sistema',
+                  html: contenidoFinal.replace(/\n/g, '<br>'),
+                });
+
+                if (emailResult.success && emailResult.messageId) {
+                  await fastify.prisma.mensaje.update({
+                    where: { id: mensaje.id },
+                    data: {
+                      emailId: emailResult.messageId,
+                      estado: 'ENTREGADO',
+                    },
+                  });
+                } else {
+                  await fastify.prisma.mensaje.update({
+                    where: { id: mensaje.id },
+                    data: { estado: 'ERROR' },
+                  });
+                }
+              }
+            } catch (sendError: any) {
+              fastify.log.error('Error enviando mensaje batch:', sendError);
+              await fastify.prisma.mensaje.update({
+                where: { id: mensaje.id },
+                data: { estado: 'ERROR' },
+              });
+            }
+          }, resultados.exitosos * 1000); // Espaciar 1 segundo entre cada envío
+
+          resultados.exitosos++;
+          resultados.mensajes.push(mensaje);
+        } catch (error: any) {
+          resultados.errores++;
+          fastify.log.error(`Error procesando vecino ${vecino.id}:`, error);
+        }
+      }
+
+      return {
+        success: true,
+        data: resultados,
+        message: `Procesando envío de ${resultados.exitosos} mensajes. Los mensajes se enviarán gradualmente.`,
+      };
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return reply.status(400).send({ error: 'Datos inválidos', details: error.errors });
+      }
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Error al enviar mensajes en batch' });
     }
   });
 }

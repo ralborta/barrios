@@ -18,6 +18,7 @@ import {
 import { mensajesApi } from "@/lib/api"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
+import { DialogEnviarMensaje } from "@/components/mensajes/dialog-enviar-mensaje"
 
 interface MensajeData {
   id: string
@@ -149,6 +150,10 @@ export default function MensajesPage() {
             Timeline de todas las comunicaciones con los vecinos
           </p>
         </div>
+        <Button onClick={() => setEnviarDialogOpen(true)}>
+          <MessageSquare className="mr-2 h-4 w-4" />
+          Enviar Mensaje
+        </Button>
       </div>
 
       <Card>
@@ -287,6 +292,14 @@ export default function MensajesPage() {
           )}
         </CardContent>
       </Card>
+
+      <DialogEnviarMensaje
+        open={enviarDialogOpen}
+        onOpenChange={setEnviarDialogOpen}
+        onSuccess={() => {
+          fetchMensajes()
+        }}
+      />
     </div>
   )
 }
