@@ -227,19 +227,29 @@ async function start() {
     }
     
     // Verificar y setup automático de la base de datos si es necesario
+    // IMPORTANTE: No bloquear el inicio del servidor si hay errores
+    // El servidor debe poder responder a peticiones CORS incluso si la DB tiene problemas
     try {
       const dbReady = await checkDatabaseSetup();
       if (!dbReady) {
-        await setupDatabase();
+        console.log('⚠️  Database needs migration, attempting auto-setup...');
+        try {
+          await setupDatabase();
+          console.log('✅ Database migration completed');
+        } catch (migrationError: any) {
+          console.error('⚠️  Auto-migration failed:', migrationError?.message);
+          console.error('⚠️  Server will continue, but some features may not work');
+          console.error('💡 Run manually: railway run --service backend pnpm db:migrate');
+        }
       } else {
         console.log('✅ Database tables already exist');
       }
     } catch (setupError: any) {
-      // Si el setup falla, loguear pero no crashear el servidor
-      // Las tablas pueden existir ya o se pueden crear manualmente
-      console.error('⚠️  Error en setup automático de DB:', setupError?.message);
-      console.error('⚠️  El servidor continuará, pero algunas funcionalidades pueden no funcionar');
-      console.error('💡 Si las tablas no existen, créalas manualmente con: pnpm prisma db push');
+      // Si el setup falla, loguear pero NO crashear el servidor
+      // El servidor debe poder responder a peticiones CORS incluso si la DB tiene problemas
+      console.error('⚠️  Error checking database setup:', setupError?.message);
+      console.error('⚠️  Server will continue, but some features may not work');
+      console.error('💡 If tables are missing, run: railway run --service backend pnpm db:migrate');
     }
 
     // Registrar Prisma como decorator para que esté disponible en todas las rutas
