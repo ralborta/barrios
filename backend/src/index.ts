@@ -224,11 +224,19 @@ async function start() {
     }
     
     // Verificar y setup automático de la base de datos si es necesario
-    const dbReady = await checkDatabaseSetup();
-    if (!dbReady) {
-      await setupDatabase();
-    } else {
-      console.log('✅ Database tables already exist');
+    try {
+      const dbReady = await checkDatabaseSetup();
+      if (!dbReady) {
+        await setupDatabase();
+      } else {
+        console.log('✅ Database tables already exist');
+      }
+    } catch (setupError: any) {
+      // Si el setup falla, loguear pero no crashear el servidor
+      // Las tablas pueden existir ya o se pueden crear manualmente
+      console.error('⚠️  Error en setup automático de DB:', setupError?.message);
+      console.error('⚠️  El servidor continuará, pero algunas funcionalidades pueden no funcionar');
+      console.error('💡 Si las tablas no existen, créalas manualmente con: pnpm prisma db push');
     }
 
     // Registrar Prisma como decorator para que esté disponible en todas las rutas
