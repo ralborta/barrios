@@ -399,7 +399,7 @@ export default function ComprobantesPage() {
     },
   })
 
-  const comprobantesNuevos = comprobantes.filter((c) => c.estado === "NUEVO").length
+  const comprobantesNuevos = (Array.isArray(comprobantes) ? comprobantes : []).filter((c) => c.estado === "NUEVO").length
 
   return (
     <div className="space-y-6">

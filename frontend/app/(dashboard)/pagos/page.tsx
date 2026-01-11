@@ -121,9 +121,13 @@ export default function PagosPage() {
       
       const response = await pagosApi.list(params)
       if (response.success && response.data) {
-        setPagos(response.data)
+        const pagosData = Array.isArray(response.data)
+          ? response.data
+          : (response.data as any)?.data || []
+        setPagos(Array.isArray(pagosData) ? pagosData : [])
       } else {
         setError(response.error || 'Error al cargar pagos')
+        setPagos([])
       }
     } catch (err: any) {
       setError(err.message || 'Error al cargar pagos')
@@ -139,7 +143,12 @@ export default function PagosPage() {
       
       const response = await expensasApi.list(params)
       if (response.success && response.data) {
-        setExpensasDisponibles(response.data)
+        const expensasData = Array.isArray(response.data)
+          ? response.data
+          : (response.data as any)?.data || []
+        setExpensasDisponibles(Array.isArray(expensasData) ? expensasData : [])
+      } else {
+        setExpensasDisponibles([])
       }
     } catch (err) {
       console.error('Error al cargar expensas:', err)
@@ -199,7 +208,7 @@ export default function PagosPage() {
     }
   }
 
-  const pagosFiltrados = pagos.filter(pago => {
+  const pagosFiltrados = (Array.isArray(pagos) ? pagos : []).filter(pago => {
     if (busqueda) {
       const busquedaLower = busqueda.toLowerCase()
       return (

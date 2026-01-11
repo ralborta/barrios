@@ -149,7 +149,7 @@ export default function BoletasPage() {
     }
   }
 
-  const boletasFiltradas = boletas.filter((boleta) => {
+  const boletasFiltradas = (Array.isArray(boletas) ? boletas : []).filter((boleta) => {
     if (!searchTerm) return true
     const search = searchTerm.toLowerCase()
     return (
