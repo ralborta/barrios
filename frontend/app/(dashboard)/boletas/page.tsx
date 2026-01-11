@@ -181,20 +181,20 @@ export default function BoletasPage() {
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Boletas de Expensas</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">Boletas de Expensas</h1>
+          <p className="text-slate-600 mt-1">
             Gestiona las boletas y facturas de las expensas
           </p>
         </div>
-        <Button onClick={() => setUploadDialogOpen(true)}>
+        <Button onClick={() => setUploadDialogOpen(true)} className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 shadow-md">
           <Upload className="mr-2 h-4 w-4" />
           Subir Boleta
         </Button>
       </div>
 
       {/* Buscador */}
-      <Card>
-        <CardHeader>
+      <Card className="border-0 shadow-lg">
+        <CardHeader className="bg-gradient-to-r from-slate-50 to-orange-50/30 border-b">
           <CardTitle className="text-slate-800">Buscar Boletas</CardTitle>
         </CardHeader>
         <CardContent>
@@ -211,9 +211,9 @@ export default function BoletasPage() {
       </Card>
 
       {/* Boletas con archivo */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Boletas con Archivo ({boletasConArchivo.length})</CardTitle>
+      <Card className="border-0 shadow-lg">
+        <CardHeader className="bg-gradient-to-r from-slate-50 to-orange-50/30 border-b">
+          <CardTitle className="text-slate-800">Boletas con Archivo ({boletasConArchivo.length})</CardTitle>
           <CardDescription>
             Expensas que tienen boleta asociada
           </CardDescription>
@@ -302,9 +302,9 @@ export default function BoletasPage() {
       </Card>
 
       {/* Boletas sin archivo */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Expensas sin Boleta ({boletasSinArchivo.length})</CardTitle>
+      <Card className="border-0 shadow-lg">
+        <CardHeader className="bg-gradient-to-r from-slate-50 to-orange-50/30 border-b">
+          <CardTitle className="text-slate-800">Expensas sin Boleta ({boletasSinArchivo.length})</CardTitle>
           <CardDescription>
             Expensas que aún no tienen boleta asociada
           </CardDescription>

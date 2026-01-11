@@ -406,7 +406,7 @@ export default function ComprobantesPage() {
       <div className="flex items-center justify-between">
     <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">Bandeja de Comprobantes</h1>
-          <p className="text-muted-foreground">
+          <p className="text-slate-600 mt-1">
             Gestiona los comprobantes recibidos de los vecinos
           </p>
         </div>
@@ -416,7 +416,7 @@ export default function ComprobantesPage() {
               {comprobantesNuevos} nuevo{comprobantesNuevos !== 1 ? "s" : ""}
             </Badge>
           )}
-          <Button onClick={() => setUploadDialogOpen(true)}>
+          <Button onClick={() => setUploadDialogOpen(true)} className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 shadow-md">
             <Upload className="mr-2 h-4 w-4" />
             Subir Comprobante
           </Button>

@@ -282,9 +282,9 @@ export default function PagosPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Pagos ({pagosFiltrados.length})</CardTitle>
+      <Card className="border-0 shadow-lg">
+        <CardHeader className="bg-gradient-to-r from-slate-50 to-emerald-50/30 border-b">
+          <CardTitle className="text-slate-800">Pagos ({pagosFiltrados.length})</CardTitle>
           <CardDescription>
             Pagos recibidos del concentrador. Los conciliados automáticamente por IA aparecen en verde.
           </CardDescription>
