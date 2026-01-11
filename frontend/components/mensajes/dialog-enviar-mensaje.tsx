@@ -238,9 +238,10 @@ export function DialogEnviarMensaje({
         })
 
         if (response.success) {
+          const batchResult = response.data as any
           toast({
             title: "Éxito",
-            description: `Procesando envío de ${response.data?.exitosos || 0} mensajes. Los mensajes se enviarán gradualmente.`,
+            description: `Procesando envío de ${batchResult?.exitosos || 0} mensajes. Los mensajes se enviarán gradualmente.`,
           })
           onOpenChange(false)
           onSuccess?.()
