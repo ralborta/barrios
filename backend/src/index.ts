@@ -20,50 +20,66 @@ import cron from 'node-cron';
 
 const prisma = new PrismaClient();
 
-// Función para verificar si las tablas y campos necesarios existen
+// Función para verificar si las tablas básicas existen
+// Retorna true si la DB está funcionando (tabla usuarios existe)
+// Las migraciones de nuevas tablas/campos se harán automáticamente si es posible
 async function checkDatabaseSetup() {
   try {
-    // Verificar tabla usuarios
+    // Solo verificar que la tabla usuarios existe (tabla básica)
+    // Si existe, la DB está funcionando y el servidor puede iniciar
     await prisma.$queryRaw`SELECT 1 FROM usuarios LIMIT 1`;
     
-    // Verificar tabla pagos (nueva)
+    // Verificar tablas/campos nuevos de forma opcional (no bloqueante)
+    // Si no existen, se intentará migrar automáticamente
     try {
       await prisma.$queryRaw`SELECT 1 FROM pagos LIMIT 1`;
     } catch {
-      console.log('⚠️  Tabla "pagos" no existe, necesita migración');
-      return false;
+      console.log('ℹ️  Tabla "pagos" no existe aún (se creará automáticamente si es posible)');
     }
     
-    // Verificar campos de boleta en expensas
     try {
       await prisma.$queryRaw`SELECT "boletaUrl" FROM expensas LIMIT 1`;
     } catch {
-      console.log('⚠️  Campos de boleta no existen en "expensas", necesita migración');
-      return false;
+      console.log('ℹ️  Campos de boleta no existen aún en "expensas" (se agregarán automáticamente si es posible)');
     }
     
-    // Verificar campo pagoId en comprobantes
     try {
       await prisma.$queryRaw`SELECT "pagoId" FROM comprobantes LIMIT 1`;
     } catch {
-      console.log('⚠️  Campo "pagoId" no existe en "comprobantes", necesita migración');
-      return false;
+      console.log('ℹ️  Campo "pagoId" no existe aún en "comprobantes" (se agregará automáticamente si es posible)');
     }
     
+    // Si llegamos aquí, la DB está funcionando (tabla usuarios existe)
     return true;
   } catch (error: any) {
-    // Si la tabla no existe, el error contendrá "does not exist"
+    // Si la tabla usuarios no existe, la DB necesita setup inicial
     if (error?.message?.includes('does not exist') || error?.code === '42P01') {
       return false;
     }
-    // Si hay un error de conexión, asumir que las tablas no existen
-    // (será manejado por el try-catch de la conexión principal)
+    // Si hay un error de conexión, la DB no está disponible
     if (error?.message?.includes('Can\'t reach database') || error?.code === 'P1001') {
       return false;
     }
-    // Para otros errores, loguear pero no crashear - asumir que las tablas existen
-    console.warn('⚠️  Error verificando setup de DB, asumiendo que las tablas existen:', error?.message);
+    // Para otros errores, asumir que la DB está funcionando
+    console.warn('⚠️  Error verificando setup de DB, asumiendo que está funcionando:', error?.message);
     return true;
+  }
+}
+
+// Función para verificar si se necesitan migraciones (tablas/campos nuevos)
+async function checkNeedsMigration(): Promise<boolean> {
+  try {
+    // Verificar si faltan tablas/campos nuevos
+    const checks = [
+      prisma.$queryRaw`SELECT 1 FROM pagos LIMIT 1`.catch(() => { throw new Error('pagos missing'); }),
+      prisma.$queryRaw`SELECT "boletaUrl" FROM expensas LIMIT 1`.catch(() => { throw new Error('boletaUrl missing'); }),
+      prisma.$queryRaw`SELECT "pagoId" FROM comprobantes LIMIT 1`.catch(() => { throw new Error('pagoId missing'); }),
+    ];
+    
+    await Promise.all(checks);
+    return false; // Todo existe, no necesita migración
+  } catch {
+    return true; // Faltan tablas/campos, necesita migración
   }
 }
 
@@ -232,26 +248,44 @@ async function start() {
     }
     
     // Verificar y setup automático de la base de datos si es necesario
-    // IMPORTANTE: No bloquear el inicio del servidor si hay errores
-    // El servidor debe poder responder a peticiones CORS incluso si la DB tiene problemas
+    // IMPORTANTE: Si la tabla usuarios existe, la DB está funcionando
+    // Las nuevas tablas/campos se pueden agregar después sin bloquear el inicio
     try {
       const dbReady = await checkDatabaseSetup();
       if (!dbReady) {
-        console.log('⚠️  Database needs migration, attempting auto-setup...');
+        // Solo si la tabla usuarios NO existe, intentar setup completo
+        console.log('⚠️  Database needs initial setup, attempting auto-setup...');
         try {
           await setupDatabase();
-          console.log('✅ Database migration completed');
+          console.log('✅ Database setup completed');
         } catch (migrationError: any) {
-          console.error('⚠️  Auto-migration failed:', migrationError?.message);
-          console.error('⚠️  Server will continue, but some features may not work');
+          console.error('⚠️  Auto-setup failed:', migrationError?.message);
+          console.error('⚠️  Server will continue, but database features will not work');
           console.error('💡 Run manually: railway run --service backend pnpm db:migrate');
         }
       } else {
-        console.log('✅ Database tables already exist');
+        // DB está funcionando (tabla usuarios existe)
+        console.log('✅ Database is ready');
+        // Intentar migrar nuevas tablas/campos en background (no bloqueante)
+        try {
+          const needsMigration = await checkNeedsMigration();
+          if (needsMigration) {
+            console.log('ℹ️  New tables/columns detected, attempting migration...');
+            try {
+              await setupDatabase();
+              console.log('✅ Database migration completed');
+            } catch (migError: any) {
+              // No es crítico si falla - las nuevas funcionalidades simplemente no estarán disponibles
+              console.log('ℹ️  Auto-migration not possible (this is OK, run manually if needed)');
+              console.log('💡 To migrate manually: railway run --service backend pnpm db:migrate');
+            }
+          }
+        } catch {
+          // Ignorar errores de verificación de migración - no es crítico
+        }
       }
     } catch (setupError: any) {
       // Si el setup falla, loguear pero NO crashear el servidor
-      // El servidor debe poder responder a peticiones CORS incluso si la DB tiene problemas
       console.error('⚠️  Error checking database setup:', setupError?.message);
       console.error('⚠️  Server will continue, but some features may not work');
       console.error('💡 If tables are missing, run: railway run --service backend pnpm db:migrate');
