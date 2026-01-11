@@ -125,7 +125,7 @@ export function DialogEnviarMensaje({
   }
 
   const handleTemplateChange = async (templateId: string) => {
-    if (!templateId) {
+    if (!templateId || templateId === "none") {
       setFormData({ ...formData, templateId: "", contenido: "", asunto: "" })
       return
     }
@@ -437,7 +437,6 @@ export function DialogEnviarMensaje({
                   </div>
                 ) : (
                   <>
-                    <SelectItem value="">Sin template (contenido manual)</SelectItem>
                     {templates
                       .filter(t => t.canal === formData.canal)
                       .map((template) => (
