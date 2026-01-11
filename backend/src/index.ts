@@ -194,11 +194,13 @@ async function start() {
       console.error('❌ DATABASE_URL is NOT SET');
     }
     
+    // Intentar conectar a la DB, pero NO crashear el servidor si falla
+    // El servidor debe poder responder a peticiones CORS incluso si la DB no está disponible
     try {
       await prisma.$connect();
       console.log('✅ Prisma connected successfully');
     } catch (dbError: any) {
-      console.error('❌ Database connection failed:');
+      console.error('⚠️  Database connection failed (server will continue):');
       console.error('   Error:', dbError.message);
       console.error('   Code:', dbError.code || 'N/A');
       
@@ -223,7 +225,10 @@ async function start() {
       console.error('   2. DATABASE_URL está configurado correctamente');
       console.error('   3. El servicio Postgres está "Online"');
       console.error('   4. Si usas postgres.railway.internal, prueba con la URL pública');
-      throw new Error(`Database connection failed: ${dbError.message}`);
+      console.error('');
+      console.error('⚠️  Server will continue, but database operations will fail');
+      console.error('⚠️  Run migration: railway run --service backend pnpm db:migrate');
+      // NO lanzar error aquí - permitir que el servidor inicie
     }
     
     // Verificar y setup automático de la base de datos si es necesario
