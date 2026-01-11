@@ -172,7 +172,7 @@ export default function VecinoDetailPage() {
     )
   }
 
-  const totalExpensas = expensas.reduce((sum, e) => sum + e.monto, 0)
+  const totalExpensas = (Array.isArray(expensas) ? expensas : []).reduce((sum, e) => sum + e.monto, 0)
   const expensasPendientes = (Array.isArray(expensas) ? expensas : []).filter((e) => e.estado === "PENDIENTE" || e.estado === "EN_MORA").length
   const comprobantesPendientes = (Array.isArray(comprobantes) ? comprobantes : []).filter((c) => c.estado === "NUEVO").length
 
