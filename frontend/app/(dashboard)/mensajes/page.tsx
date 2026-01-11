@@ -94,6 +94,7 @@ export default function MensajesPage() {
   const [filtroTipo, setFiltroTipo] = React.useState<string>("")
   const [filtroEstado, setFiltroEstado] = React.useState<string>("")
   const [busqueda, setBusqueda] = React.useState("")
+  const [enviarDialogOpen, setEnviarDialogOpen] = React.useState(false)
 
   React.useEffect(() => {
     fetchMensajes()
