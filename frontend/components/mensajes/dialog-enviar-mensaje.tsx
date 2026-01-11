@@ -40,12 +40,12 @@ export function DialogEnviarMensaje({
   expensaId: initialExpensaId,
   onSuccess,
 }: DialogEnviarMensajeProps) {
-  // const { toast } = useToast()
-  const toast = (options: any) => {
+  // Función simple de toast (reemplazar con useToast cuando esté disponible)
+  const toast = (options: { title?: string; description?: string; variant?: "destructive" | "default" }) => {
     if (options.variant === "destructive") {
-      alert(`Error: ${options.description}`)
+      alert(`Error: ${options.description || options.title}`)
     } else {
-      alert(options.description || options.title)
+      alert(options.description || options.title || "Operación exitosa")
     }
   }
   const [modo, setModo] = React.useState<"individual" | "batch">(initialVecinoId ? "individual" : "batch")
