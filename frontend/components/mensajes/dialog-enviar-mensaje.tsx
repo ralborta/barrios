@@ -23,7 +23,6 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { mensajesApi, templatesApi, vecinosApi, expensasApi } from "@/lib/api"
 import { Loader2, Users, User } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
 
 interface DialogEnviarMensajeProps {
   open: boolean
