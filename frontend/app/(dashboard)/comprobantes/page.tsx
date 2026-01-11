@@ -404,7 +404,7 @@ export default function ComprobantesPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
+    <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">Bandeja de Comprobantes</h1>
           <p className="text-muted-foreground">
             Gestiona los comprobantes recibidos de los vecinos
@@ -423,9 +423,9 @@ export default function ComprobantesPage() {
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Listado de Comprobantes</CardTitle>
+      <Card className="border-0 shadow-lg">
+        <CardHeader className="bg-gradient-to-r from-slate-50 to-cyan-50/30 border-b">
+          <CardTitle className="text-slate-800">Listado de Comprobantes</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-4 mb-4">
